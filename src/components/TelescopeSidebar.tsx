@@ -1,9 +1,10 @@
 import {
   Globe, Send, Briefcase, AlertTriangle, FileText,
-  Database, Mail, Zap, HardDrive, Terminal, LayoutDashboard, Clock
+  Database, Mail, Zap, HardDrive, Terminal, LayoutDashboard, Clock, Play, Square
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { stats } from "@/data/mockData";
+import { useRealtime } from "@/contexts/RealtimeContext";
 
 const navItems = [
   { title: "Painel Geral", url: "/", icon: LayoutDashboard, count: null },
@@ -21,6 +22,7 @@ const navItems = [
 ];
 
 export function TelescopeSidebar() {
+  const { isLive, toggleLive } = useRealtime();
   return (
     <aside className="w-64 min-h-screen bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))] flex flex-col shrink-0">
       <div className="p-5 border-b border-[hsl(var(--sidebar-border))]">
@@ -64,8 +66,28 @@ export function TelescopeSidebar() {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-[hsl(var(--sidebar-border))] text-[10px] text-muted-foreground">
-        <div className="font-display tracking-wider">v4.18.1</div>
+      <div className="p-4 border-t border-[hsl(var(--sidebar-border))]">
+        <button
+          onClick={toggleLive}
+          className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded text-[10px] font-display tracking-wider uppercase transition-all ${
+            isLive
+              ? 'bg-neon-red text-black font-bold border border-neon-red/50'
+              : 'bg-neon-green/20 border border-neon-green text-neon-green hover:bg-neon-green/30'
+          }`}
+        >
+          {isLive ? (
+            <>
+              <Square className="h-3 w-3 fill-current" />
+              Parar
+            </>
+          ) : (
+            <>
+              <Play className="h-3 w-3 fill-current" />
+              Ao Vivo
+            </>
+          )}
+        </button>
+        <div className="text-[10px] text-muted-foreground mt-3 font-display">v4.18.1</div>
       </div>
     </aside>
   );

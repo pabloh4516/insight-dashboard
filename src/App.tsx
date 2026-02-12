@@ -17,33 +17,51 @@ import CachePage from "./pages/CachePage";
 import CommandsPage from "./pages/CommandsPage";
 import TimelinePage from "./pages/TimelinePage";
 import NotFound from "./pages/NotFound";
+import { RealtimeProvider } from "@/contexts/RealtimeContext";
+import { useRealtimeData } from "@/hooks/useRealtimeData";
 
 const queryClient = new QueryClient();
+
+const AppContent = () => {
+  const realtimeValue = useRealtimeData();
+
+  return (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <RealtimeProvider value={realtimeValue}>
+        <BrowserRouter>
+          <TelescopeLayout>
+            <Routes>
+              <Route path="/" element={<DashboardOverview />} />
+              <Route path="/requests" element={<RequestsPage />} />
+              <Route path="/client-requests" element={<ClientRequestsPage />} />
+              <Route path="/jobs" element={<JobsPage />} />
+              <Route path="/exceptions" element={<ExceptionsPage />} />
+              <Route path="/logs" element={<LogsPage />} />
+              <Route path="/queries" element={<QueriesPage />} />
+              <Route path="/mail" element={<MailPage />} />
+              <Route path="/events" element={<EventsPage />} />
+              <Route path="/cache" element={<CachePage />} />
+              <Route path="/commands" element={<CommandsPage />} />
+              <Route path="/timeline" element={<TimelinePage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </TelescopeLayout>
+        </BrowserRouter>
+      </RealtimeProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <TelescopeLayout>
-          <Routes>
-            <Route path="/" element={<DashboardOverview />} />
-            <Route path="/requests" element={<RequestsPage />} />
-            <Route path="/client-requests" element={<ClientRequestsPage />} />
-            <Route path="/jobs" element={<JobsPage />} />
-            <Route path="/exceptions" element={<ExceptionsPage />} />
-            <Route path="/logs" element={<LogsPage />} />
-            <Route path="/queries" element={<QueriesPage />} />
-            <Route path="/mail" element={<MailPage />} />
-            <Route path="/events" element={<EventsPage />} />
-            <Route path="/cache" element={<CachePage />} />
-            <Route path="/commands" element={<CommandsPage />} />
-            <Route path="/timeline" element={<TimelinePage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </TelescopeLayout>
-      </BrowserRouter>
+      <AppContent />
     </TooltipProvider>
   </QueryClientProvider>
 );
