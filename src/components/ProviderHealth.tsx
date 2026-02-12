@@ -1,5 +1,5 @@
 import { Wifi } from "lucide-react";
-import { useGatewayStats } from "@/hooks/useGatewayStats";
+import { useHealthCheck } from "@/hooks/useHealthCheck";
 
 function StatusDot({ successRate }: { successRate: number }) {
   const color = successRate >= 95 ? "bg-primary" : successRate >= 70 ? "bg-warning" : "bg-destructive";
@@ -27,11 +27,9 @@ function LatencyBar({ successRate }: { successRate: number }) {
   );
 }
 
-const formatLatency = (ms: number) => ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
-const latencyColor = (ms: number) => ms <= 0 ? 'text-muted-foreground' : ms < 1000 ? 'text-primary' : ms <= 3000 ? 'text-warning' : 'text-destructive';
-
 export function ProviderHealth() {
-  const { acquirerStats, isLoading } = useGatewayStats("24h");
+  const { checks, isUp } = useHealthCheck();
+  const acquirers = checks?.acquirers ?? [];
 
   return (
     <div className="border rounded-lg bg-card">
@@ -42,23 +40,20 @@ export function ProviderHealth() {
         </span>
       </div>
       <div className="divide-y divide-border">
-        {isLoading ? (
+        {isUp === null ? (
           <div className="py-6 text-center text-xs text-muted-foreground">Carregando...</div>
-        ) : acquirerStats.length === 0 ? (
+        ) : acquirers.length === 0 ? (
           <div className="py-6 text-center text-xs text-muted-foreground">Sem dados de adquirentes</div>
         ) : (
-          acquirerStats.map((acq) => (
-            <div key={acq.name} className={`flex items-center justify-between px-4 py-2.5 ${acq.successRate < 70 ? 'bg-destructive/5' : ''}`}>
+          acquirers.map((acq) => (
+            <div key={acq.slug} className={`flex items-center justify-between px-4 py-2.5 ${acq.success_rate < 70 ? 'bg-destructive/5' : ''}`}>
               <div className="flex items-center gap-2.5">
-                <StatusDot successRate={acq.successRate} />
+                <StatusDot successRate={acq.success_rate} />
                 <span className="text-xs font-medium text-foreground capitalize">{acq.name}</span>
-                <span className="text-[10px] text-muted-foreground">{acq.count} txns</span>
+                <span className="text-[10px] text-muted-foreground">{acq.transactions_24h} txns</span>
               </div>
               <div className="flex items-center gap-4">
-                {acq.avgLatencyMs > 0 && (
-                  <span className={`text-[10px] font-mono ${latencyColor(acq.avgLatencyMs)}`}>{formatLatency(acq.avgLatencyMs)}</span>
-                )}
-                <LatencyBar successRate={acq.successRate} />
+                <LatencyBar successRate={acq.success_rate} />
               </div>
             </div>
           ))
