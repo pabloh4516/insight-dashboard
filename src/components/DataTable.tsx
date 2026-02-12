@@ -28,13 +28,13 @@ export function DataTable<T>({ data, columns, expandable, getKey }: DataTablePro
   };
 
   return (
-    <div className="border rounded-lg glow-cyan overflow-hidden">
+    <div className="border rounded-lg overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow className="border-b border-border hover:bg-transparent">
             {expandable && <TableHead className="w-8" />}
             {columns.map(col => (
-              <TableHead key={col.key} className={`text-[10px] font-display uppercase tracking-widest text-muted-foreground ${col.className || ''}`}>
+              <TableHead key={col.key} className={`text-[10px] uppercase tracking-widest text-muted-foreground font-medium ${col.className || ''}`}>
                 {col.header}
               </TableHead>
             ))}
@@ -53,7 +53,7 @@ export function DataTable<T>({ data, columns, expandable, getKey }: DataTablePro
                 >
                   {expandable && (
                     <TableCell className="w-8 p-2">
-                      {isOpen ? <ChevronDown className="h-3 w-3 text-neon-cyan" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                      {isOpen ? <ChevronDown className="h-3 w-3 text-primary" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
                     </TableCell>
                   )}
                   {columns.map(col => (

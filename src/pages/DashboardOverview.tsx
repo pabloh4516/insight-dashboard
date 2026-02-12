@@ -16,21 +16,11 @@ const DashboardOverview = () => {
   const counts = useMemo(() => {
     const allEntries = isLive ? liveEntries : [];
     const typeCounts: Record<string, number> = {
-      request: 0,
-      client_request: 0,
-      job: 0,
-      exception: 0,
-      log: 0,
-      query: 0,
-      mail: 0,
-      event: 0,
-      cache: 0,
-      command: 0,
+      request: 0, client_request: 0, job: 0, exception: 0, log: 0,
+      query: 0, mail: 0, event: 0, cache: 0, command: 0,
     };
 
-    allEntries.forEach(e => {
-      typeCounts[e.type]++;
-    });
+    allEntries.forEach(e => { typeCounts[e.type]++; });
 
     return {
       requests: stats.requests + typeCounts.request,
@@ -65,39 +55,39 @@ const DashboardOverview = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="border rounded-lg p-4 bg-card glow-red">
-          <div className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-1">Taxa de Erro</div>
-          <div className="text-xl font-display font-bold text-neon-red">{stats.errorRate}%</div>
+        <div className="border rounded-lg p-4 bg-card">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 font-medium">Taxa de Erro</div>
+          <div className="text-xl font-semibold text-error">{stats.errorRate}%</div>
         </div>
-        <div className="border rounded-lg p-4 bg-card glow-magenta">
-          <div className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-1">Consultas Lentas</div>
-          <div className="text-xl font-display font-bold text-neon-magenta">{stats.slowQueries}</div>
+        <div className="border rounded-lg p-4 bg-card">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 font-medium">Consultas Lentas</div>
+          <div className="text-xl font-semibold text-purple-400">{stats.slowQueries}</div>
         </div>
-        <div className="border rounded-lg p-4 bg-card glow-red">
-        <div className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-1">Tarefas com Falha</div>
-          <div className="text-xl font-display font-bold text-neon-red">{counts.failedJobs}</div>
+        <div className="border rounded-lg p-4 bg-card">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 font-medium">Tarefas com Falha</div>
+          <div className="text-xl font-semibold text-error">{counts.failedJobs}</div>
         </div>
       </div>
 
-      <div className="border rounded-lg p-4 bg-card glow-cyan mb-6">
-        <div className="text-[10px] font-display uppercase tracking-widest text-muted-foreground mb-4">Atividade — Últimas 24h</div>
+      <div className="border rounded-lg p-4 bg-card mb-6">
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-4 font-medium">Atividade — Últimas 24h</div>
         <ResponsiveContainer width="100%" height={250}>
           <AreaChart data={activityData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-            <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 16%)" />
+            <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'hsl(220 10% 50%)' }} />
+            <YAxis tick={{ fontSize: 10, fill: 'hsl(220 10% 50%)' }} />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'hsl(220 25% 7%)',
-                border: '1px solid hsl(var(--neon-cyan) / 0.3)',
-                borderRadius: '4px',
+                backgroundColor: 'hsl(220 14% 9%)',
+                border: '1px solid hsl(220 14% 16%)',
+                borderRadius: '6px',
                 fontSize: '11px',
-                fontFamily: 'JetBrains Mono',
+                fontFamily: 'Inter, system-ui',
               }}
             />
-            <Area type="monotone" dataKey="requests" name="Requisições" stroke="hsl(185 100% 50%)" fill="hsl(185 100% 50% / 0.1)" strokeWidth={2} />
-            <Area type="monotone" dataKey="jobs" name="Tarefas" stroke="hsl(120 100% 55%)" fill="hsl(120 100% 55% / 0.05)" strokeWidth={1.5} />
-            <Area type="monotone" dataKey="exceptions" name="Erros" stroke="hsl(0 100% 55%)" fill="hsl(0 100% 55% / 0.1)" strokeWidth={1.5} />
+            <Area type="monotone" dataKey="requests" name="Requisições" stroke="hsl(217 91% 60%)" fill="hsl(217 91% 60% / 0.1)" strokeWidth={2} />
+            <Area type="monotone" dataKey="jobs" name="Tarefas" stroke="hsl(142 71% 45%)" fill="hsl(142 71% 45% / 0.05)" strokeWidth={1.5} />
+            <Area type="monotone" dataKey="exceptions" name="Erros" stroke="hsl(0 72% 51%)" fill="hsl(0 72% 51% / 0.1)" strokeWidth={1.5} />
           </AreaChart>
         </ResponsiveContainer>
       </div>

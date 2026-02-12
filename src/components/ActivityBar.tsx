@@ -35,8 +35,8 @@ export function ActivityBar({ entries, minutes = 30 }: ActivityBarProps) {
             backgroundColor: bar.count === 0
               ? 'hsl(var(--muted) / 0.3)'
               : bar.count > 3
-                ? 'hsl(var(--neon-cyan))'
-                : 'hsl(var(--neon-cyan) / 0.5)',
+                ? 'hsl(var(--primary))'
+                : 'hsl(var(--primary) / 0.5)',
           }}
           title={`${bar.count} eventos`}
         />
