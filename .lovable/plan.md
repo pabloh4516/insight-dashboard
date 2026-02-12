@@ -1,90 +1,106 @@
-# Detectar Queda do Gateway (Monitoramento de Inatividade)
 
-## Problema Atual
 
-O painel mostra "Sistema funcionando normalmente" mesmo quando o gateway para de enviar eventos. Isso acontece porque a logica atual so analisa erros entre os eventos existentes, mas nao detecta a *ausencia* de novos eventos.
+# Atualizar Health Check para usar o endpoint correto e dados detalhados
 
-## Solucao
+## O que muda
 
-### 1. Detectar gap de inatividade
+A URL atual (`https://app.sellxpay.com.br/api/v1/health`) esta errada e retornava 404. A URL correta e `https://api.sellxpay.com.br/api/v1/health` e retorna um JSON rico com status de banco, Redis, fila e adquirentes.
 
-Comparar o horario do ultimo evento recebido com o horario atual. Se passou mais tempo do que o esperado, considerar o sistema inativo.
+## Alteracoes
 
-Regras:
+### 1. Edge Function `health-check` - Corrigir URL e retornar JSON completo
 
-- **Sem eventos nas ultimas 24h**: Score vai a 0, banner vermelho com "Gateway parece estar offline"
-- **Sem eventos nos ultimos 30 minutos**: Penalidade de -40 pontos no score
-- **Sem eventos nos ultimos 10 minutos**: Penalidade de -20 pontos no score
+- Trocar a URL para `https://api.sellxpay.com.br/api/v1/health`
+- Em vez de consumir o body como texto, parsear o JSON e retornar todos os campos relevantes para o frontend
+- Retornar: `status`, `statusCode`, `checks` (database, redis, queue, last_transaction, acquirers)
 
-### 2. Expor timestamp do ultimo evento
+### 2. Hook `useHealthCheck` - Expandir o state com dados detalhados
 
-Adicionar `lastEventAt` ao retorno do hook `useGatewayStats` para que os componentes saibam quando foi o ultimo evento.
+Novo estado exposto:
 
-### 3. Atualizar StatusBanner
+- `status`: `"operational"` | `"degraded"` | `"down"` | `null`
+- `statusCode`: HTTP status code
+- `checks`: objeto com database, redis, queue, last_transaction, acquirers
+- Logica de notificacao: disparar email quando transicionar para `"down"` ou quando o fetch falhar
 
-Antes de calcular o score normal, verificar se ha inatividade. Se o ultimo evento foi ha mais de 30 minutos, mostrar um banner especifico:
+### 3. `StatusBanner` - Usar as novas regras
 
-```text
-Vermelho: "Seu gateway parece estar offline. Nenhum evento recebido nos ultimos X minutos."
-Amarelo:  "Atencao: nenhum evento recebido nos ultimos X minutos."
-```
+- Fetch falhou / timeout / HTTP != 200 → Banner vermelho "Gateway OFFLINE"
+- `status === "down"` → Banner vermelho "Gateway DOWN" (com detalhes de qual componente caiu)
+- `status === "degraded"` → Banner amarelo "Gateway degradado"
+- `checks.last_transaction.minutes_ago > 30` → Aplicar penalidade de inatividade do health check (substitui a logica atual de `lastEventAt` para inatividade quando o health check esta disponivel)
+- `status === "operational"` e sem problemas → Banner verde normal
 
-### 4. Atualizar SystemHealthBar
+### 4. `SystemHealthBar` - Novos fatores granulares
 
-Incluir a penalidade de inatividade nos fatores da barra de saude, com label descritivo:
+Fatores adicionados ao tooltip:
 
-```text
-"Sem eventos ha X minutos" → -20 a -100 pontos
-```
+- **Health check status**: "down" = -100, "degraded" = -30, "operational" = 0
+- **Fila critica**: `checks.queue.status === "critical"` → -20
+- **Inatividade (transacao)**: `checks.last_transaction.minutes_ago` usando os thresholds existentes (>10min = -20, >30min = -40, >60min = -70, >24h = -100)
+- **Database/Redis**: mostrar latencia como informacao nos fatores
+- **Adquirentes**: usar `checks.acquirers[].failure_rate` para enriquecer os dados de adquirentes
 
 ---
 
 ## Detalhes Tecnicos
 
-### Arquivos a Modificar
-
-`**src/hooks/useGatewayStats.ts**`
-
-- Calcular `lastEventAt` a partir do evento mais recente no array
-- Adicionar ao tipo `GatewayStats` e ao retorno do hook
-
-`**src/components/StatusBanner.tsx**`
-
-- Calcular minutos desde o ultimo evento usando `lastEventAt`
-- Se inativo > 30min: mostrar banner vermelho/amarelo de inatividade *em vez de* banner normal
-- Se inativo > 10min: adicionar penalidade extra no calculo do score
-
-`**src/components/SystemHealthBar.tsx**`
-
-- Importar `lastEventAt` do hook
-- Calcular minutos de inatividade
-- Adicionar fator ao array `factors` com penalidade proporcional:
-  - Sem eventos ha 10-30min: -20 pontos
-  - Sem eventos ha 30-60min: -40 pontos
-  - Sem eventos ha mais de 1h: -70 pontos
-  - Sem eventos ha mais de 24h: -100 pontos (score vai a 0)
-
-### Logica de Inatividade (pseudocodigo)
+### Edge Function `health-check/index.ts`
 
 ```text
-lastEventAt = max(events.created_at) ou null
-minutesInactive = lastEventAt ? (now - lastEventAt) / 60000 : Infinity
-
-if minutesInactive > 1440 (24h)  → penalty = 100
-if minutesInactive > 60  (1h)    → penalty = 70
-if minutesInactive > 30  (30min) → penalty = 40
-if minutesInactive > 10  (10min) → penalty = 20
-else                             → penalty = 0
+URL: https://api.sellxpay.com.br/api/v1/health
+Timeout: 10s
+Retorno: { status, statusCode, checks, isUp, error? }
+- isUp = statusCode === 200 && status !== "down"
+- Se fetch falhar: { isUp: false, status: null, statusCode: null, error: message }
 ```
 
-Preciso de 3 coisas alem do que voce ja propos:
+### Hook `useHealthCheck.ts`
 
-  1. Health check ativo: A cada 2 minutos, fazer um fetch em https://app.sellxpay.com.br/api/v1/health. Se retornar qualquer coisa diferente de 200, marcar como DOWN imediatamente (sem esperar gap de eventos).
+Novo tipo:
 
-   Mostrar o HTTP status code no banner.
+```text
+HealthCheckState {
+  isUp: boolean | null
+  status: "operational" | "degraded" | "down" | null
+  statusCode: number | null
+  lastCheckedAt: string | null
+  error: string | null
+  checks: {
+    database: { status, latency_ms }
+    redis: { status, latency_ms }
+    queue: { status, failed_jobs }
+    lastTransaction: { minutes_ago }
+    acquirers: Array<{ name, failure_rate }>
+  } | null
+}
+```
 
-  2. Combinar as duas detecções: O score final deve considerar AMBOS - o health check ativo E o gap de inatividade. Se o health check falha, score vai a 0 instantaneamente. Se o health check passa mas nao tem
+Logica de notificacao: disparar `notify-status-change` quando `prevStatus` era `"operational"` e novo status e `"down"` ou fetch falhou.
 
-  eventos novos, aplicar as penalidades de inatividade que voce propos.
+### StatusBanner.tsx
 
-  3. Notificação externa: Quando o status mudar de OK para DOWN, disparar uma notificacao (webhook, email ou Telegram) para eu ser avisado mesmo fora do painel.
+Prioridade de renderizacao:
+
+1. `healthCheck.isUp === false` (fetch falhou) → Vermelho "Gateway OFFLINE (HTTP XXX)"
+2. `healthCheck.status === "down"` → Vermelho "Gateway DOWN" + detalhes (DB/Redis offline)
+3. `healthCheck.status === "degraded"` → Amarelo "Gateway degradado"
+4. Inatividade via `checks.lastTransaction.minutes_ago > 30` → Amarelo/Vermelho de inatividade
+5. Score normal com penalidades
+
+### SystemHealthBar.tsx
+
+Novos fatores no array:
+
+- `"Status: down"` → impact -100
+- `"Status: degraded"` → impact -30  
+- `"Fila: X jobs falhados"` → impact -20 (se queue.status === "critical")
+- `"Ultima transacao: Xmin atras"` → impact baseado nos thresholds
+- Database e Redis latency como fatores informativos
+
+### Arquivos modificados
+
+- `supabase/functions/health-check/index.ts` - URL correta + retornar JSON completo
+- `src/hooks/useHealthCheck.ts` - Novo tipo expandido + logica de status
+- `src/components/StatusBanner.tsx` - Novas regras de banner (down/degraded/operational)
+- `src/components/SystemHealthBar.tsx` - Fatores granulares do health check
