@@ -69,13 +69,28 @@ const generateRandomEntry = (): AnyEntry => {
       } as ExceptionEntry;
     }
     case 'log': {
-      const levels = ['info', 'warning', 'error', 'debug'] as const;
-      const messages = ['Operation completed', 'Slow query detected', 'Rate limit approaching', 'Process started'];
+      const levels = ['info', 'info', 'info', 'warning', 'error', 'debug'] as const;
+      const logHosts = ['pay.checkout.store', 'api.gateway.com', 'webhook.bspay.io', 'pix.suitpay.com', 'admin.painel.dev'];
+      const logRoutes = ['/api/webhooks/bspay', '/api/checkout/create', '/api/pix/generate', '/api/merchant/balance', '/api/admin/dashboard'];
+      const messages = [
+        'Webhook processado com sucesso',
+        'Slow query detectada: 342ms',
+        'Rate limit atingindo 90%',
+        'Transação confirmada via PIX',
+        'Cache invalidado para merchant:42',
+        'Conexão Redis restabelecida',
+        'Postback enviado para merchant',
+        'Falha na validação do payload',
+        'Timeout na conexão com EzzeBank',
+        'QR Code PIX gerado',
+      ];
       return {
         id,
         type: 'log',
         level: levels[Math.floor(Math.random() * levels.length)],
         message: messages[Math.floor(Math.random() * messages.length)],
+        host: logHosts[Math.floor(Math.random() * logHosts.length)],
+        route: logRoutes[Math.floor(Math.random() * logRoutes.length)],
         timestamp: now,
       } as LogEntry;
     }
