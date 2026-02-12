@@ -1,16 +1,13 @@
 import {
-  Globe, Send, Briefcase, AlertTriangle, FileText,
-  Database, Mail, Zap, HardDrive, Terminal, LayoutDashboard, Clock, Play, Square, LogOut, FolderOpen, ChevronDown
+  Zap, FileText, LayoutDashboard, LogOut, FolderOpen, ChevronDown
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useRealtime } from "@/contexts/RealtimeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProject } from "@/contexts/ProjectContext";
 import { useEventCounts } from "@/hooks/useSupabaseEvents";
 import { useState } from "react";
 
 export function TelescopeSidebar() {
-  const { isLive, toggleLive } = useRealtime();
   const { signOut, user } = useAuth();
   const { projects, selectedProject, setSelectedProjectId } = useProject();
   const { data: counts } = useEventCounts(selectedProject?.id ?? null);
@@ -18,17 +15,8 @@ export function TelescopeSidebar() {
 
   const navItems = [
     { title: "Painel Geral", url: "/", icon: LayoutDashboard, count: counts?.total ?? null },
-    { title: "Pagamentos", url: "/events", icon: Zap, count: counts?.payment ?? null },
-    { title: "Requisições", url: "/requests", icon: Globe, count: counts?.request ?? null },
-    { title: "Chamadas Externas", url: "/client-requests", icon: Send, count: counts?.webhook_out ?? null },
-    { title: "Tarefas", url: "/jobs", icon: Briefcase, count: counts?.job ?? null },
-    { title: "Erros", url: "/exceptions", icon: AlertTriangle, count: counts?.error ?? null },
+    { title: "Eventos", url: "/events", icon: Zap, count: counts?.payment ?? null },
     { title: "Registros", url: "/logs", icon: FileText, count: null },
-    { title: "Consultas ao Banco", url: "/queries", icon: Database, count: null },
-    { title: "E-mails", url: "/mail", icon: Mail, count: counts?.email ?? null },
-    { title: "Cache", url: "/cache", icon: HardDrive, count: null },
-    { title: "Comandos", url: "/commands", icon: Terminal, count: null },
-    { title: "Linha do Tempo", url: "/timeline", icon: Clock, count: null },
     { title: "Projetos", url: "/projects", icon: FolderOpen, count: null },
   ];
 
@@ -104,27 +92,6 @@ export function TelescopeSidebar() {
       </nav>
 
       <div className="p-4 border-t border-[hsl(var(--sidebar-border))] space-y-3">
-        <button
-          onClick={toggleLive}
-          className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-full text-xs font-medium tracking-wide transition-all ${
-            isLive
-              ? 'bg-destructive text-destructive-foreground'
-              : 'bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20'
-          }`}
-        >
-          {isLive ? (
-            <>
-              <Square className="h-3 w-3 fill-current" />
-              Parar
-            </>
-          ) : (
-            <>
-              <Play className="h-3 w-3 fill-current" />
-              Ao Vivo
-            </>
-          )}
-        </button>
-
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground truncate">{user?.email}</span>
           <button onClick={signOut} className="text-muted-foreground hover:text-destructive transition-colors">
