@@ -1,5 +1,6 @@
 import {
-  Zap, FileText, LayoutDashboard, LogOut, FolderOpen, ChevronDown
+  Zap, FileText, LayoutDashboard, LogOut, FolderOpen, ChevronDown,
+  Globe, AlertTriangle, Database, Cog, Mail, HardDrive, Terminal
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +17,13 @@ export function TelescopeSidebar() {
   const navItems = [
     { title: "Painel Geral", url: "/", icon: LayoutDashboard, count: counts?.total ?? null },
     { title: "Eventos", url: "/events", icon: Zap, count: counts?.payment ?? null },
+    { title: "Requests", url: "/requests", icon: Globe, count: counts?.request ?? null },
+    { title: "Exceptions", url: "/exceptions", icon: AlertTriangle, count: counts?.exception ?? null },
+    { title: "Queries", url: "/queries", icon: Database, count: counts?.query ?? null },
+    { title: "Jobs", url: "/jobs", icon: Cog, count: counts?.job ?? null },
+    { title: "Mail", url: "/mails", icon: Mail, count: counts?.email ?? null },
+    { title: "Cache", url: "/cache", icon: HardDrive, count: counts?.cache ?? null },
+    { title: "Commands", url: "/commands", icon: Terminal, count: counts?.command ?? null },
     { title: "Registros", url: "/logs", icon: FileText, count: null },
     { title: "Projetos", url: "/projects", icon: FolderOpen, count: null },
   ];
