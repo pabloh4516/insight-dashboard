@@ -1,44 +1,51 @@
 
 
-# Corrigir Adquirentes e Contagem do Menu Lateral
+# Timeline de Disponibilidade por Hora
 
-## Problema 1: Apenas uma adquirente aparecendo no ProviderHealth
+## Comportamento Desejado
 
-O componente `ProviderHealth` usa o hook `useGatewayStats`, que calcula as adquirentes a partir do campo `meta.acquirer` dos **eventos** salvos na tabela `events`. Se apenas a Cyberpayment tem eventos com esse campo preenchido, somente ela aparece.
+A timeline de 30 blocos representa a hora atual:
+- No inicio de cada hora (ex: 21:00), todos os blocos ficam vazios/cinza
+- A cada 2 minutos, um novo bloco e preenchido (verde, amarelo ou vermelho)
+- Ao final da hora, os 30 blocos estao preenchidos
+- Quando vira a proxima hora (ex: 22:00), a timeline zera e recomeça
 
-Ja o componente `AcquirerHealthTable` usa `useHealthCheck`, que busca os dados diretamente da **API de saude** (`/api/v1/health`) -- por isso mostra todas as adquirentes corretamente.
+## Problema Atual
 
-### Solucao
+1. O hook carrega os ultimos 30 registros do banco **sem filtrar por hora** -- entao mistura checks de horas diferentes
+2. Ha registros duplicados (varios checks no mesmo segundo) que "consomem" os 30 slots
 
-Unificar a fonte de dados de adquirentes: o `ProviderHealth` deve usar os dados vindos da API de saude (do `useHealthCheck`) em vez de calcular a partir dos eventos. Isso garante que todas as adquirentes retornadas pela API aparecem, nao apenas as que tem eventos registrados.
+## Correcoes
 
-## Problema 2: Contagem do menu lateral nao limpa ao abrir a pagina
+### 1. Filtrar checks pela hora atual (useHealthCheck.ts)
 
-O `useEventCounts` retorna a contagem total de eventos por tipo e mostra no sidebar. Esses numeros nunca sao zerados/limpos quando o usuario navega para a pagina correspondente, dando a impressao de que sao notificacoes nao lidas acumulando.
+Ao carregar o historico do banco, filtrar apenas registros onde `checked_at` esta dentro da hora atual:
+- Calcular o inicio da hora atual (ex: se sao 21:35, filtrar `checked_at >= 21:00:00`)
+- Isso garante que ao virar a hora, a query retorna 0 registros e a timeline começa vazia
 
-### Solucao
+### 2. Deduplica no frontend (useHealthCheck.ts)
 
-Implementar um sistema de "leitura" por pagina: ao navegar para uma pagina (ex: `/requests`), marcar aquele tipo como "visto" e exibir apenas a contagem de eventos **novos desde a ultima visita**. Isso pode ser feito armazenando o timestamp da ultima visita a cada pagina no `localStorage` e filtrando a contagem para mostrar apenas eventos com `created_at` posterior a esse timestamp.
+Antes de popular o `history`, agrupar registros que estao dentro do mesmo intervalo de 2 minutos, mantendo apenas 1 por slot. Isso evita que duplicatas consumam os 30 blocos.
 
-## Etapas Tecnicas
+### 3. Atualizar label do componente (UptimeTimeline.tsx)
 
-### 1. Alterar ProviderHealth para usar dados do health check
+Trocar "Disponibilidade (ultima hora)" para mostrar a hora atual, ex: "Disponibilidade (21:00 - 22:00)".
 
-- Importar `useHealthCheck` em vez de `useGatewayStats`
-- Usar `checks.acquirers` (que vem da API de saude) para renderizar a lista
-- Manter o layout visual atual, adaptando os campos (`transactions_24h`, `success_rate`, `last_transaction_at`)
+## Detalhes Tecnicos
 
-### 2. Criar sistema de contagem "nao lida" no sidebar
+### useHealthCheck.ts - Filtro por hora atual
 
-- Criar um hook `useLastVisited` que armazena no `localStorage` um mapa `{ [eventType]: timestamp }` com a data da ultima visita a cada pagina
-- Atualizar `useEventCounts` para aceitar um filtro `since` por tipo, contando apenas eventos com `created_at > lastVisited`
-- No `TelescopeSidebar`, usar o timestamp salvo para cada tipo ao exibir a contagem
-- Ao navegar para uma pagina, atualizar o timestamp daquele tipo no `localStorage`
+Na query de carregamento inicial, adicionar `.gte('checked_at', startOfCurrentHour)` para trazer apenas os checks da hora vigente. Quando novos checks sao adicionados ao estado, verificar se ainda estamos na mesma hora; se a hora mudou, limpar o historico local.
 
-### 3. Arquivos modificados
+### useHealthCheck.ts - Deduplicacao
 
-- `src/components/ProviderHealth.tsx` -- trocar de `useGatewayStats` para `useHealthCheck`
-- `src/hooks/useSupabaseEvents.ts` -- adicionar filtro `since` no `useEventCounts`
-- `src/components/TelescopeSidebar.tsx` -- integrar sistema de "ultima visita" para limpar contagens
-- `src/hooks/useLastVisited.ts` -- novo hook para gerenciar timestamps de ultima visita por pagina
+Ao receber os dados do banco, calcular o "slot" de cada check (minuto 0-1 = slot 0, minuto 2-3 = slot 1, ..., minuto 58-59 = slot 29) e manter apenas o registro mais recente de cada slot.
 
+### UptimeTimeline.tsx - Label dinamico
+
+Usar a hora atual para exibir o intervalo, ex: "21:00 - 22:00". Cada bloco representara um intervalo de 2 minutos dentro da hora.
+
+### Arquivos modificados
+
+- `src/hooks/useHealthCheck.ts` -- filtro por hora + deduplicacao
+- `src/components/UptimeTimeline.tsx` -- label dinamico com horario
