@@ -1,110 +1,56 @@
 
 
-# 🤖 Telescope Dashboard — Estilo Robótico/Futurista
+# Pagina de Logs ao Vivo (estilo Vercel)
 
-## Visão Geral
-Painel de monitoramento completo inspirado no Laravel Telescope, com visual dark futurista/robótico, animações de scan, glitch effects, grid lines e cores neon (ciano, verde, magenta). Dados fictícios realistas simulando um gateway de pagamento.
+Vou redesenhar a pagina de Registros para funcionar como a tela de logs da Vercel, com visualizacao ao vivo, busca, filtros na lateral e linhas de log aparecendo em tempo real.
 
----
+## O que muda
 
-## 🎨 Design & Tema
-- **Fundo escuro** com texturas de grid/linhas de circuito
-- **Cores neon**: ciano (#00F0FF), verde (#39FF14), magenta (#FF00FF), vermelho (#FF3131)
-- **Tipografia monospace** para dados técnicos
-- **Animações**: pulse nos indicadores, glow nos cards, fade-in sequencial na timeline, efeito de "scan line" sutil
-- **Bordas com glow** nos cards e botões
+### Layout da pagina
+- Barra superior com campo de busca, botao "Ao Vivo" (verde pulsando) e periodo
+- Painel de filtros na lateral esquerda (colapsavel) com checkboxes: Nivel (Alerta, Erro, Fatal), Tipo, Host, Rota, Status
+- Area principal com tabela de logs estilo terminal
 
----
+### Tabela de logs (estilo Vercel)
+- Colunas: Horario (com milissegundos), Metodo, Status (badge colorido), Host, Rota, Mensagens
+- Linhas com fundo amarelo/vermelho para warnings/errors (como na imagem)
+- Monospace, compacta, sem bordas pesadas
+- Novos logs aparecem no topo com animacao de fade-in
+- Scroll automatico quando "Ao Vivo" esta ativo
 
-## 📐 Layout
+### Integracao com dados ao vivo
+- Usa o RealtimeContext existente para receber dados em tempo real
+- Combina logs estaticos + logs que chegam ao vivo
+- Filtra por nivel, busca por texto na mensagem/rota
+- Botao "Ao Vivo" na propria pagina (independente do da sidebar)
 
-### Sidebar Esquerda
-- Logo/título "TELESCOPE" com efeito glow
-- Navegação com ícones para cada tipo de entrada (10 itens)
-- Indicadores de contagem em tempo real com badge animado
-- Ícone de status "SYSTEM ONLINE" pulsando
-
-### Área Principal
-
-#### 1. Dashboard Overview (página inicial)
-- **Cards de status** com contadores para cada tipo (requests, exceptions, jobs, etc.)
-- **Gráfico de atividade** (timeline de últimas 24h) usando Recharts
-- **Últimas 5 entries** de cada tipo em mini-cards
-- **Indicadores de saúde**: taxa de erro, queries lentas, jobs falhados
-
-#### 2. Páginas por Tipo de Entrada
-
-Cada um dos 10 tipos terá sua página dedicada:
-
-**Requests (HTTP recebidos)**
-- Tabela com método, URL, status code, duração, timestamp
-- Código de status colorido (2xx verde, 4xx amarelo, 5xx vermelho)
-- Clique para expandir e ver headers, payload, response
-
-**Client Requests (chamadas externas)**
-- Similar a requests, mas mostra o serviço destino (BSPAY, SuitPay, etc.)
-- Badge do provedor com ícone
-
-**Jobs**
-- Status: processed ✅, failed ❌, pending ⏳
-- Tempo de processamento, tentativas
-- Nome do job com classe (ProcessWebhook, SendPostback, etc.)
-
-**Exceptions**
-- Classe da exception, mensagem, arquivo:linha
-- Stack trace expandível
-- Indicador de recorrência
-
-**Logs**
-- Nível (info 🔵, warning 🟡, error 🔴)
-- Mensagem e contexto
-- Filtro por nível
-
-**Queries SQL**
-- Query formatada com syntax highlighting
-- Duração com destaque para queries lentas (>100ms em vermelho)
-- Conexão utilizada
-
-**Mail**
-- Destinatário, assunto, mailable class
-- Status de envio
-
-**Events**
-- Nome do evento (PaymentReceived, PaymentConfirmed, etc.)
-- Listeners executados
-- Payload do evento
-
-**Cache**
-- Operação: HIT (verde), MISS (vermelho), SET (ciano)
-- Key do cache, TTL
-
-**Commands**
-- Nome do comando artisan
-- Exit code, duração
-- Arguments e options
-
-#### 3. Timeline View
-- Vista cronológica unificada de todas as entries
-- Filtro por tipo, status e período
-- Mostra a cadeia de eventos (ex: webhook → job → event → query → postback)
-- Linhas conectando entries relacionadas
+### Mini timeline no topo
+- Barra de atividade mostrando densidade de logs nos ultimos 30 minutos (como na imagem da Vercel)
 
 ---
 
-## 🔧 Funcionalidades
-- **Busca global** por qualquer campo
-- **Filtros** por tipo, status, período, duração
-- **Auto-refresh simulado** com novos dados aparecendo com animação
-- **Detalhes expandíveis** em cada entry
-- **Contadores em tempo real** atualizando com animação de contagem
+## Detalhes tecnicos
 
----
+### Arquivo modificado: `src/pages/LogsPage.tsx`
+Reescrever completamente com:
+- Estado local para busca, filtros de nivel, modo ao vivo
+- `useRef` para scroll automatico
+- `useMemo` para combinar logs estaticos + `liveEntries` filtrados por tipo "log" e outros tipos relevantes (requests, exceptions)
+- Renderizacao de cada linha como row estilo terminal
 
-## 📊 Dados Mock
-Dados fictícios realistas simulando:
-- Gateway de pagamento com adquirentes (BSPAY, SuitPay, EzzeBank)
-- Webhooks de pagamento, PIX, boleto
-- Jobs de processamento de webhook e envio de postback
-- Queries de atualização de transações
-- Exceptions reais (timeout, validation, etc.)
+### Arquivo modificado: `src/data/mockData.ts`
+- Adicionar campo `host` nos logs e requests mock (ex: "pay.checkout.store", "api.gateway.com")
+- Adicionar mais logs mock para volume maior
+
+### Arquivo modificado: `src/hooks/useRealtimeData.ts`
+- Gerar logs com hosts e rotas mais realistas para o modo ao vivo
+
+### Novo componente: `src/components/LogsFilterPanel.tsx`
+- Painel lateral com checkboxes para filtrar por nivel, host, rota
+- Contadores ao lado de cada filtro (como na imagem: Warning 135, Error 4)
+- Botao "Resetar" para limpar filtros
+
+### Novo componente: `src/components/ActivityBar.tsx`
+- Mini grafico de barras mostrando densidade de atividade nos ultimos 30 minutos
+- Similar a barra de timeline no topo da imagem da Vercel
 
