@@ -31,6 +31,7 @@ export interface AcquirerStat {
   count: number;
   successRate: number;
   totalAmount: number;
+  avgLatencyMs: number;
 }
 
 export interface GatewayStats {
@@ -44,6 +45,7 @@ export interface GatewayStats {
   hourlyData: HourlyDataPoint[];
   cumulativeData: { hour: string; total: number }[];
   acquirerStats: AcquirerStat[];
+  recentErrors: DbEvent[];
   recentEvents: DbEvent[];
   allEvents: DbEvent[];
   isLoading: boolean;
@@ -111,22 +113,31 @@ export function useGatewayStats(period: PeriodKey = '24h'): GatewayStats {
     });
 
     // Acquirer stats
-    const acqMap = new Map<string, { count: number; success: number; totalAmount: number }>();
+    const acqMap = new Map<string, { count: number; success: number; totalAmount: number; totalLatency: number; latencyCount: number }>();
     for (const e of events) {
       const acq = getAcquirer(e);
       if (!acq) continue;
-      if (!acqMap.has(acq)) acqMap.set(acq, { count: 0, success: 0, totalAmount: 0 });
+      if (!acqMap.has(acq)) acqMap.set(acq, { count: 0, success: 0, totalAmount: 0, totalLatency: 0, latencyCount: 0 });
       const stat = acqMap.get(acq)!;
       stat.count++;
       if (e.status === 'success') stat.success++;
       stat.totalAmount += getAmount(e);
+      const latency = getMetaField(e, 'response_time_ms');
+      if (typeof latency === 'number') {
+        stat.totalLatency += latency;
+        stat.latencyCount++;
+      }
     }
     const acquirerStats: AcquirerStat[] = Array.from(acqMap.entries()).map(([name, s]) => ({
       name,
       count: s.count,
       successRate: s.count > 0 ? (s.success / s.count) * 100 : 0,
       totalAmount: s.totalAmount,
+      avgLatencyMs: s.latencyCount > 0 ? s.totalLatency / s.latencyCount : 0,
     }));
+
+    // Recent errors
+    const recentErrors = events.filter(e => e.status === 'error').slice(0, 5);
 
     return {
       paymentsToday,
@@ -139,6 +150,7 @@ export function useGatewayStats(period: PeriodKey = '24h'): GatewayStats {
       hourlyData,
       cumulativeData,
       acquirerStats,
+      recentErrors,
       recentEvents: events.slice(0, 10),
       allEvents: events,
       isLoading,
