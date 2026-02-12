@@ -14,6 +14,7 @@ import MailPage from "./pages/MailPage";
 import CachePage from "./pages/CachePage";
 import CommandsPage from "./pages/CommandsPage";
 import RequestsPage from "./pages/RequestsPage";
+import SecurityPage from "./pages/SecurityPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
@@ -51,6 +52,7 @@ const AppRoutes = () => {
           <Route path="/mails" element={<MailPage />} />
           <Route path="/cache" element={<CachePage />} />
           <Route path="/commands" element={<CommandsPage />} />
+          <Route path="/security" element={<SecurityPage />} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/auth" element={<Navigate to="/" replace />} />
