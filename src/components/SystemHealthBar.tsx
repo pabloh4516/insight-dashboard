@@ -16,31 +16,48 @@ function getHealthLabel(score: number): string {
 }
 
 export function SystemHealthBar() {
-  const { errorsToday, totalEvents, acquirerStats, lastEventAt } = useGatewayStats("24h");
-  const healthCheck = useHealthCheck();
+  const { errorsToday, totalEvents, acquirerStats } = useGatewayStats("24h");
+  const hc = useHealthCheck();
 
   const factors: { label: string; impact: number }[] = [];
 
-  // Health check factor
-  if (healthCheck.isUp === false) {
-    factors.push({ label: `Health check FALHOU${healthCheck.statusCode ? ` (HTTP ${healthCheck.statusCode})` : ''}`, impact: -100 });
-  } else if (healthCheck.isUp === true) {
+  // Health check status factor
+  if (hc.isUp === false && hc.status === null) {
+    factors.push({ label: `Health check FALHOU${hc.statusCode ? ` (HTTP ${hc.statusCode})` : ''}`, impact: -100 });
+  } else if (hc.status === 'down') {
+    factors.push({ label: "Status: DOWN", impact: -100 });
+  } else if (hc.status === 'degraded') {
+    factors.push({ label: "Status: degradado", impact: -30 });
+  } else if (hc.status === 'operational') {
     factors.push({ label: "Health check: OK", impact: 0 });
   }
 
-  // Inactivity factor
-  const minutesInactive = lastEventAt
-    ? (Date.now() - new Date(lastEventAt).getTime()) / 60000
-    : Infinity;
+  // Queue critical
+  if (hc.checks?.queue?.status === 'critical') {
+    factors.push({ label: `Fila: ${hc.checks.queue.failed_jobs} jobs falhados`, impact: -20 });
+  } else if (hc.checks?.queue) {
+    factors.push({ label: `Fila: ${hc.checks.queue.failed_jobs} jobs falhados`, impact: 0 });
+  }
 
-  if (minutesInactive > 1440) {
-    factors.push({ label: "Sem eventos há mais de 24h", impact: -100 });
-  } else if (minutesInactive > 60) {
-    factors.push({ label: `Sem eventos há ${Math.round(minutesInactive / 60)}h`, impact: -70 });
-  } else if (minutesInactive > 30) {
-    factors.push({ label: `Sem eventos há ${Math.round(minutesInactive)}min`, impact: -40 });
-  } else if (minutesInactive > 10) {
-    factors.push({ label: `Sem eventos há ${Math.round(minutesInactive)}min`, impact: -20 });
+  // Inactivity from last_transaction
+  const minutesAgo = hc.checks?.lastTransaction?.minutes_ago;
+  if (minutesAgo != null) {
+    let inactivityImpact = 0;
+    if (minutesAgo > 1440) inactivityImpact = -100;
+    else if (minutesAgo > 60) inactivityImpact = -70;
+    else if (minutesAgo > 30) inactivityImpact = -40;
+    else if (minutesAgo > 10) inactivityImpact = -20;
+    factors.push({ label: `Última transação: ${Math.round(minutesAgo)}min atrás`, impact: inactivityImpact });
+  }
+
+  // Database latency (informational)
+  if (hc.checks?.database) {
+    factors.push({ label: `Database: ${hc.checks.database.status} (${hc.checks.database.latency_ms}ms)`, impact: 0 });
+  }
+
+  // Redis latency (informational)
+  if (hc.checks?.redis) {
+    factors.push({ label: `Redis: ${hc.checks.redis.status} (${hc.checks.redis.latency_ms}ms)`, impact: 0 });
   }
 
   // Error rate impact
@@ -66,9 +83,9 @@ export function SystemHealthBar() {
     factors.push({ label: "Sem eventos recebidos", impact: -10 });
   }
 
-  // If health check is DOWN, score = 0 instantly
-  const healthCheckDown = healthCheck.isUp === false;
-  const score = healthCheckDown
+  // If health check is DOWN or fetch failed, score = 0
+  const forceZero = (hc.isUp === false && hc.status === null) || hc.status === 'down';
+  const score = forceZero
     ? 0
     : Math.round(Math.max(0, Math.min(100, 100 + factors.reduce((sum, f) => sum + f.impact, 0))));
   const color = getHealthColor(score);
