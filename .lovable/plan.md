@@ -1,37 +1,26 @@
 
 
-# Adicionar Indicador "Ao Vivo" nas Paginas
+# Corrigir Exibicao do Score na Barra de Saude
 
 ## Problema
-O hook `useSupabaseEvents` ja possui subscription Realtime via Supabase (novos eventos chegam automaticamente), mas nao ha nenhum indicador visual de "Ao Vivo" nas paginas. O usuario nao percebe que o sistema esta monitorando em tempo real.
+O score de saude do gateway exibe numeros com muitas casas decimais (ex: `63.57142857142857/100`) porque o calculo envolve divisoes que geram floats. O valor nao esta sendo arredondado antes da exibicao.
 
-## Mudancas
+## Solucao
+Arredondar o `score` para inteiro usando `Math.round()` antes de exibi-lo.
 
-### 1. Indicador "Ao Vivo" na pagina de Logs (`src/pages/LogsPage.tsx`)
-- Adicionar badge pulsante "Ao Vivo" ao lado do contador de registros na barra superior
-- Destacar visualmente os eventos que chegaram via Realtime (os `liveEvents`) com uma animacao de fade-in e borda colorida
-- Usar o retorno `liveEvents` do hook para saber quantos eventos novos chegaram em tempo real
+## Arquivo modificado
+- `src/components/SystemHealthBar.tsx`
 
-### 2. Indicador "Ao Vivo" no componente GenericEventPage (`src/components/GenericEventPage.tsx`)
-- Adicionar o mesmo badge pulsante "Ao Vivo" no header de todas as paginas genericas (Exceptions, Queries, Jobs, etc.)
-- Destacar eventos recebidos via Realtime com animacao
+## Detalhes tecnicos
+Na linha onde o score e calculado:
+```
+const score = Math.max(0, Math.min(100, 100 + factors.reduce(...)));
+```
+Envolver com `Math.round()`:
+```
+const score = Math.round(Math.max(0, Math.min(100, 100 + factors.reduce(...))));
+```
 
-### 3. Indicador no Sidebar (`src/components/TelescopeSidebar.tsx`)
-- Atualizar os contadores no sidebar para refletir eventos em tempo real (ja funciona via `useEventCounts` com refetch de 30s)
+Isso garante que tanto o numero exibido (`63`) quanto a barra de progresso (`width: 63%`) e o label (`Atencao`) usem um valor inteiro limpo.
 
-## Detalhes Tecnicos
-
-O hook `useSupabaseEvents` ja retorna:
-- `events`: todos os eventos (Realtime + query inicial) deduplicados
-- `liveEvents`: apenas os que chegaram via subscription Realtime
-- A subscription ja esta ativa com `postgres_changes` no canal `events-realtime-{projectId}`
-
-As mudancas sao puramente visuais:
-- Badge com dot pulsante verde + texto "Ao Vivo" quando `liveEvents.length > 0` ou quando a subscription esta ativa
-- Eventos do `liveEvents` recebem classe CSS com `animate-fade-in` e borda esquerda verde para destaque
-- Contagem de "X novos" ao lado do badge quando ha eventos Realtime recentes
-
-### Arquivos modificados:
-- `src/pages/LogsPage.tsx` — adicionar badge "Ao Vivo" e destaque visual nos live events
-- `src/components/GenericEventPage.tsx` — adicionar badge "Ao Vivo" no header
-
+Mudanca de 1 linha, sem impacto em outros componentes.
