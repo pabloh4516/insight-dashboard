@@ -109,7 +109,7 @@ const ProjectsPage = () => {
         <h3 className="text-xs font-semibold text-foreground mb-2">Como usar</h3>
         <pre className="text-[10px] bg-muted/30 p-3 rounded font-mono text-muted-foreground overflow-auto">
 {`curl -X POST \\
-  https://dsdwtlvikwsxkediqqfm.supabase.co/functions/v1/ingest \\
+  ${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ingest \\
   -H "Authorization: Bearer SEU_TOKEN_AQUI" \\
   -H "Content-Type: application/json" \\
   -d '{

@@ -68,42 +68,31 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Validate each event
-  const validTypes = ["request", "error", "job", "email", "webhook_in", "webhook_out", "login"];
+  // Validate each event before processing
   const validStatuses = ["success", "warning", "error"];
 
-  const rows = eventsArray.map((evt) => {
-    if (!validTypes.includes(evt.type)) {
-      throw new Error(`Invalid type: ${evt.type}`);
+  for (const evt of eventsArray) {
+    if (!evt.type || typeof evt.type !== 'string' || evt.type.trim() === '') {
+      return new Response(
+        JSON.stringify({ error: "Each event must have a non-empty 'type' string" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-    if (!validStatuses.includes(evt.status)) {
-      throw new Error(`Invalid status: ${evt.status}`);
+    if (!evt.status || typeof evt.status !== 'string' || !validStatuses.includes(evt.status)) {
+      return new Response(
+        JSON.stringify({ error: `Invalid status: "${evt.status}". Must be one of: ${validStatuses.join(', ')}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-    return {
-      project_id: project.id,
-      type: evt.type,
-      status: evt.status,
-      summary: evt.summary?.slice(0, 1000) || null,
-      meta: evt.meta || null,
-    };
-  });
-
-  try {
-    // Validate rows before insert
-    for (const row of rows) {
-      if (!row.type || !row.status) {
-        throw new Error("Each event must have type and status");
-      }
-    }
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: (err as Error).message }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
   }
+
+  const rows = eventsArray.map((evt) => ({
+    project_id: project.id,
+    type: evt.type.trim(),
+    status: evt.status,
+    summary: evt.summary?.slice(0, 1000) || null,
+    meta: evt.meta || null,
+  }));
 
   const { error: insertError } = await supabase.from("events").insert(rows);
 
