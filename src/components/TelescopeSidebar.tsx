@@ -1,6 +1,7 @@
 import {
   Zap, FileText, LayoutDashboard, LogOut, FolderOpen, ChevronDown,
-  Globe, AlertTriangle, Database, Cog, Mail, HardDrive, Terminal, Shield
+  Globe, AlertTriangle, Database, Cog, Mail, HardDrive, Terminal, Shield,
+  ArrowDownLeft, ArrowUpRight, LogIn, Settings, RefreshCw
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +26,11 @@ export function TelescopeSidebar() {
     { title: "Cache", url: "/cache", icon: HardDrive, count: counts?.cache ?? null },
     { title: "Commands", url: "/commands", icon: Terminal, count: counts?.command ?? null },
     { title: "Segurança", url: "/security", icon: Shield, count: counts?.security ?? null },
+    { title: "Webhooks In", url: "/webhooks-in", icon: ArrowDownLeft, count: counts?.webhook_in ?? null },
+    { title: "Webhooks Out", url: "/webhooks-out", icon: ArrowUpRight, count: counts?.webhook_out ?? null },
+    { title: "Logins", url: "/logins", icon: LogIn, count: counts?.login ?? null },
+    { title: "Config", url: "/config-changes", icon: Settings, count: counts?.config_change ?? null },
+    { title: "Fallback", url: "/acquirer-switch", icon: RefreshCw, count: counts?.acquirer_switch ?? null },
     { title: "Registros", url: "/logs", icon: FileText, count: null },
     { title: "Projetos", url: "/projects", icon: FolderOpen, count: null },
   ];

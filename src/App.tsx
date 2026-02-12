@@ -15,6 +15,11 @@ import CachePage from "./pages/CachePage";
 import CommandsPage from "./pages/CommandsPage";
 import RequestsPage from "./pages/RequestsPage";
 import SecurityPage from "./pages/SecurityPage";
+import WebhooksInPage from "./pages/WebhooksInPage";
+import WebhooksOutPage from "./pages/WebhooksOutPage";
+import LoginsPage from "./pages/LoginsPage";
+import ConfigChangesPage from "./pages/ConfigChangesPage";
+import AcquirerSwitchPage from "./pages/AcquirerSwitchPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
@@ -53,6 +58,11 @@ const AppRoutes = () => {
           <Route path="/cache" element={<CachePage />} />
           <Route path="/commands" element={<CommandsPage />} />
           <Route path="/security" element={<SecurityPage />} />
+          <Route path="/webhooks-in" element={<WebhooksInPage />} />
+          <Route path="/webhooks-out" element={<WebhooksOutPage />} />
+          <Route path="/logins" element={<LoginsPage />} />
+          <Route path="/config-changes" element={<ConfigChangesPage />} />
+          <Route path="/acquirer-switch" element={<AcquirerSwitchPage />} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/auth" element={<Navigate to="/" replace />} />
