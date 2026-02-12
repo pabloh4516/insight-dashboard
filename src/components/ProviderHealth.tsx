@@ -28,6 +28,8 @@ function LatencyBar({ successRate }: { successRate: number }) {
 }
 
 const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+const formatLatency = (ms: number) => ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+const latencyColor = (ms: number) => ms <= 0 ? 'text-muted-foreground' : ms < 1000 ? 'text-primary' : ms <= 3000 ? 'text-warning' : 'text-destructive';
 
 export function ProviderHealth() {
   const { acquirerStats, isLoading } = useGatewayStats("24h");
@@ -55,6 +57,9 @@ export function ProviderHealth() {
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-[10px] text-muted-foreground font-mono">{formatBRL(acq.totalAmount)}</span>
+                {acq.avgLatencyMs > 0 && (
+                  <span className={`text-[10px] font-mono ${latencyColor(acq.avgLatencyMs)}`}>{formatLatency(acq.avgLatencyMs)}</span>
+                )}
                 <LatencyBar successRate={acq.successRate} />
               </div>
             </div>

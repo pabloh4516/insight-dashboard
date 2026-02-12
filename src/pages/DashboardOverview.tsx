@@ -1,6 +1,8 @@
 import {
   LayoutDashboard, CreditCard, ArrowDownToLine, AlertTriangle, Zap, TestTube, DollarSign, Activity, Clock, Server
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { PageHeader } from "@/components/PageHeader";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useState, useMemo } from "react";
@@ -87,10 +89,9 @@ const DashboardOverview = () => {
       </div>
 
       {/* Secondary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[
           { title: "Total Eventos", value: stats.totalEvents, icon: Zap, color: COLORS.payment },
-          { title: "Erros", value: stats.errorsToday, icon: AlertTriangle, color: COLORS.error },
           { title: "Testes", value: stats.testsToday, icon: TestTube, color: COLORS.test },
           { title: "Adquirentes", value: stats.acquirerStats.length, icon: Server, color: COLORS.payment },
         ].map((card, i) => (
@@ -98,6 +99,32 @@ const DashboardOverview = () => {
             <SparklineCard title={card.title} value={card.value} icon={card.icon} trend={0} sparkData={[0, 0]} color={card.color} compact />
           </div>
         ))}
+        {/* Error card - expandable */}
+        <div className="animate-fade-up" style={{ animationDelay: '550ms' }}>
+          {stats.errorsToday > 0 ? (
+            <div className="border rounded-lg p-3 bg-destructive/5 border-destructive/20">
+              <div className="flex items-center gap-1.5 mb-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                <span className="text-[10px] uppercase tracking-widest text-destructive font-medium">Erros Hoje</span>
+                <span className="ml-auto text-lg font-bold font-mono text-destructive">{stats.errorsToday}</span>
+              </div>
+              <div className="space-y-1.5">
+                {stats.recentErrors.slice(0, 3).map(err => {
+                  const meta = (err.meta as Record<string, unknown>) ?? {};
+                  return (
+                    <div key={err.id} className="flex items-center gap-2 text-[10px]">
+                      <span className="text-destructive font-mono truncate flex-1">{err.summary ?? String(meta.error_code ?? '—')}</span>
+                      <span className="text-muted-foreground capitalize shrink-0">{String(meta.acquirer ?? '')}</span>
+                      <span className="text-muted-foreground shrink-0">{formatDistanceToNow(new Date(err.created_at), { addSuffix: true, locale: ptBR })}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <SparklineCard title="Erros" value={0} icon={AlertTriangle} trend={0} sparkData={[0, 0]} color={COLORS.error} compact />
+          )}
+        </div>
       </div>
 
       {/* Volume Chart */}

@@ -27,16 +27,20 @@ function getMeta(event: DbEvent): Record<string, unknown> {
   return (event.meta as Record<string, unknown>) ?? {};
 }
 
+const formatLatency = (ms: number) => ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+const latencyColor = (ms: number) => ms < 1000 ? 'text-primary' : ms <= 3000 ? 'text-warning' : 'text-destructive';
+
 function EventRow({ event }: { event: DbEvent }) {
   const [expanded, setExpanded] = useState(false);
   const config = typeConfig[event.type] ?? { icon: Zap, label: event.type, color: "bg-muted text-muted-foreground" };
   const Icon = config.icon;
   const meta = getMeta(event);
   const amount = typeof meta.amount === 'number' ? meta.amount : null;
+  const isError = event.status === 'error';
 
   return (
     <div className="border-b border-border last:border-b-0">
-      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left">
+      <button onClick={() => setExpanded(!expanded)} className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left ${isError ? 'bg-destructive/5' : ''}`}>
         {expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${config.color}`}>{config.label}</Badge>
@@ -50,18 +54,33 @@ function EventRow({ event }: { event: DbEvent }) {
       {expanded && (
         <div className="px-12 pb-3 space-y-2 animate-fade-up">
           {event.type === 'payment' && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-              <MetaItem label="Transaction ID" value={String(meta.transaction_id ?? '—')} />
-              <MetaItem label="Valor" value={amount !== null ? formatBRL(amount) : '—'} />
-              <MetaItem label="Método" value={String(meta.method ?? '—')} />
-              <MetaItem label="Adquirente" value={String(meta.acquirer ?? '—')} />
-              <MetaItem label="E-mail" value={String(meta.user_email ?? '—')} />
-            </div>
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                <MetaItem label="Transaction ID" value={String(meta.transaction_id ?? '—')} />
+                <MetaItem label="Valor" value={amount !== null ? formatBRL(amount) : '—'} />
+                <MetaItem label="Método" value={String(meta.method ?? '—')} />
+                <MetaItem label="Adquirente" value={String(meta.acquirer ?? '—')} />
+                <MetaItem label="E-mail" value={String(meta.user_email ?? '—')} />
+                {typeof meta.response_time_ms === 'number' && (
+                  <div className="bg-muted/30 rounded px-2.5 py-1.5">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Latência</div>
+                    <div className={`text-xs font-mono ${latencyColor(meta.response_time_ms)}`}>{formatLatency(meta.response_time_ms)}</div>
+                  </div>
+                )}
+              </div>
+              {isError && (meta.error_code || meta.error_message) && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded px-3 py-2">
+                  <div className="text-[10px] text-destructive font-medium mb-1">Erro</div>
+                  <div className="text-xs text-destructive font-mono">{String(meta.error_code ?? '')} — {String(meta.error_message ?? '')}</div>
+                </div>
+              )}
+            </>
           )}
           {event.type === 'withdrawal' && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
               <MetaItem label="Withdrawal ID" value={String(meta.withdrawal_id ?? '—')} />
               <MetaItem label="Valor" value={amount !== null ? formatBRL(amount) : '—'} />
+              <MetaItem label="Adquirente" value={String(meta.acquirer ?? '—')} />
               <MetaItem label="E-mail" value={String(meta.user_email ?? '—')} />
             </div>
           )}
