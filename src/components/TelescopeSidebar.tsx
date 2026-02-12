@@ -27,7 +27,7 @@ export function TelescopeSidebar() {
     <aside className="w-64 min-h-screen bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))] flex flex-col shrink-0">
       <div className="p-5 border-b border-[hsl(var(--sidebar-border))]">
         <h1 className="text-base font-semibold text-foreground tracking-tight">
-          Telescope
+          Tele<span className="text-primary">scope</span>
         </h1>
         <p className="text-[10px] text-muted-foreground mt-1 tracking-wide">
           Painel de Monitoramento
@@ -37,9 +37,10 @@ export function TelescopeSidebar() {
       <div className="px-5 py-3 border-b border-[hsl(var(--sidebar-border))]">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+            <span className="absolute inline-flex rounded-full h-2 w-2 bg-primary opacity-40 animate-ping" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
           </span>
-          <span className="text-[10px] text-success tracking-wide uppercase font-medium">
+          <span className="text-[10px] text-primary tracking-wide uppercase font-medium">
             Sistema Ativo
           </span>
         </div>
@@ -51,8 +52,8 @@ export function TelescopeSidebar() {
             key={item.url}
             to={item.url}
             end={item.url === "/"}
-            className="flex items-center gap-3 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group"
-            activeClassName="text-primary bg-[hsl(var(--sidebar-accent))] border-r-2 border-primary"
+            className="flex items-center gap-3 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
+            activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
           >
             <item.icon className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
             <span className="flex-1 truncate">{item.title}</span>
@@ -68,10 +69,10 @@ export function TelescopeSidebar() {
       <div className="p-4 border-t border-[hsl(var(--sidebar-border))]">
         <button
           onClick={toggleLive}
-          className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded text-xs font-medium tracking-wide transition-all ${
+          className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-full text-xs font-medium tracking-wide transition-all ${
             isLive
               ? 'bg-destructive text-destructive-foreground'
-              : 'bg-success/10 border border-success/30 text-success hover:bg-success/20'
+              : 'bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20'
           }`}
         >
           {isLive ? (

@@ -1,9 +1,9 @@
-import { Wifi, WifiOff } from "lucide-react";
+import { Wifi } from "lucide-react";
 import { providerHealthData, ProviderStatus } from "@/data/mockData";
 
 function StatusDot({ status }: { status: ProviderStatus["status"] }) {
   const colors = {
-    online: "bg-success",
+    online: "bg-primary",
     degraded: "bg-warning",
     offline: "bg-error",
   };
@@ -25,7 +25,7 @@ function LatencyBar({ latency, status }: { latency: number | null; status: Provi
 
   const maxLatency = 1000;
   const pct = Math.min((latency / maxLatency) * 100, 100);
-  const color = latency < 300 ? "bg-success" : latency < 600 ? "bg-warning" : "bg-error";
+  const color = latency < 300 ? "bg-primary" : latency < 600 ? "bg-warning" : "bg-error";
 
   return (
     <div className="flex items-center gap-2">
@@ -41,14 +41,17 @@ export function ProviderHealth() {
   return (
     <div className="border rounded-lg bg-card">
       <div className="px-4 py-3 border-b flex items-center gap-2">
-        <Wifi className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
+        <Wifi className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[10px] uppercase tracking-widest text-primary font-medium">
           Provedores
         </span>
       </div>
       <div className="divide-y divide-border">
         {providerHealthData.map((provider) => (
-          <div key={provider.name} className="flex items-center justify-between px-4 py-2.5">
+          <div
+            key={provider.name}
+            className={`flex items-center justify-between px-4 py-2.5 ${provider.status === 'offline' ? 'bg-error/5' : ''}`}
+          >
             <div className="flex items-center gap-2.5">
               <StatusDot status={provider.status} />
               <span className="text-xs font-medium text-foreground">{provider.name}</span>
