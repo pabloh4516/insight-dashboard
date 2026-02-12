@@ -42,7 +42,8 @@ const typeLabels: Record<string, string> = {
 
 const LogsPage = () => {
   const { selectedProject } = useProject();
-  const { events } = useSupabaseEvents({ projectId: selectedProject?.id ?? null });
+  const { events, liveEvents } = useSupabaseEvents({ projectId: selectedProject?.id ?? null });
+  const liveIds = useMemo(() => new Set(liveEvents.map(e => e.id)), [liveEvents]);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<Record<string, Set<string>>>({
@@ -125,9 +126,21 @@ const LogsPage = () => {
             className="pl-8 h-8 text-xs bg-background border-border"
           />
         </div>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          {filteredLogs.length} registros
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground tabular-nums">
+            {filteredLogs.length} registros
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-primary">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+            </span>
+            Ao Vivo
+            {liveEvents.length > 0 && (
+              <span className="text-[10px] text-muted-foreground">({liveEvents.length} novos)</span>
+            )}
+          </span>
+        </div>
       </div>
 
       <div className="px-4 py-2 border-b border-border/50 bg-card/30">
@@ -162,7 +175,7 @@ const LogsPage = () => {
                   <tbody key={log.id}>
                     <tr
                       onClick={() => toggleExpand(log.id)}
-                      className={`border-b border-border/20 hover:bg-muted/20 transition-colors cursor-pointer ${statusColor[log.level] || ''}`}
+                      className={`border-b border-border/20 hover:bg-muted/20 transition-colors cursor-pointer ${statusColor[log.level] || ''} ${liveIds.has(log.id) ? 'animate-fade-in border-l-2 border-l-primary' : ''}`}
                     >
                       <td className="px-3 py-1.5">
                         {isExpanded ? <ChevronDown className="h-3 w-3 text-primary" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}

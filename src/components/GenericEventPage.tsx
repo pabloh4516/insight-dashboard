@@ -2,7 +2,7 @@ import { LucideIcon, Search, ChevronDown, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useSupabaseEvents, DbEvent } from "@/hooks/useSupabaseEvents";
 import { useProject } from "@/contexts/ProjectContext";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,7 +21,7 @@ const statusConfig: Record<string, string> = {
   error: "bg-destructive/15 text-destructive",
 };
 
-function EventRow({ event }: { event: DbEvent }) {
+function EventRow({ event, isLive }: { event: DbEvent; isLive?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const meta = (event.meta as Record<string, unknown>) ?? {};
   const isError = event.status === "error";
@@ -30,7 +30,7 @@ function EventRow({ event }: { event: DbEvent }) {
     <div className="border-b border-border last:border-b-0">
       <button
         onClick={() => setExpanded(!expanded)}
-        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left ${isError ? "bg-destructive/5" : ""}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left ${isError ? "bg-destructive/5" : ""} ${isLive ? "animate-fade-in border-l-2 border-l-primary" : ""}`}
       >
         {expanded ? (
           <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -89,16 +89,32 @@ export function GenericEventPage({ type, title, subtitle, icon }: GenericEventPa
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
 
-  const { events, isLoading } = useSupabaseEvents({
+  const { events, liveEvents, isLoading } = useSupabaseEvents({
     projectId: selectedProject?.id ?? null,
     type,
     status: statusFilter === "all" ? undefined : statusFilter,
-    search: search || undefined,
+        search: search || undefined,
   });
+
+  const liveIds = useMemo(() => new Set(liveEvents.map(e => e.id)), [liveEvents]);
 
   return (
     <div>
-      <PageHeader title={title} icon={icon} count={events.length} subtitle={subtitle} />
+      <div className="flex items-center gap-3 mb-6">
+        <div className="flex-1">
+          <PageHeader title={title} icon={icon} count={events.length} subtitle={subtitle} />
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-primary shrink-0">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+          </span>
+          Ao Vivo
+          {liveEvents.length > 0 && (
+            <span className="text-muted-foreground">({liveEvents.length} novos)</span>
+          )}
+        </span>
+      </div>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
         <Tabs value={statusFilter} onValueChange={setStatusFilter}>
@@ -131,7 +147,7 @@ export function GenericEventPage({ type, title, subtitle, icon }: GenericEventPa
             Nenhum evento encontrado. Envie eventos do tipo "{type}" pelo seu gateway.
           </div>
         ) : (
-          events.map((event) => <EventRow key={event.id} event={event} />)
+          events.map((event) => <EventRow key={event.id} event={event} isLive={liveIds.has(event.id)} />)
         )}
       </div>
     </div>
