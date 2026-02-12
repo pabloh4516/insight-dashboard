@@ -1,79 +1,70 @@
 
 
-# Adicionar 5 Novos Tipos de Evento
+# Simplificar o Monitoramento
 
-## Resumo
-Adicionar suporte visual completo para `webhook_in`, `webhook_out`, `login`, `config_change` e `acquirer_switch` na sidebar, filtros da EventsPage, e paginas dedicadas usando o GenericEventPage.
+## Problema
+O painel tem muitas informacoes tecnicas e a sidebar lista 17 itens sem organizacao, o que dificulta o uso para quem nao e tecnico.
 
----
+## Mudancas Propostas
 
-## Arquivos a Criar
+### 1. Sidebar: Agrupar em secoes colapsaveis
+Organizar os 17 itens em 4 grupos logicos com titulos claros. Grupos fechados por padrao, exceto o que contem a rota ativa.
 
-### 1. `src/pages/WebhooksInPage.tsx`
-Pagina simples usando GenericEventPage com `type="webhook_in"`, titulo "Webhooks Recebidos", icone `ArrowDownLeft`.
+| Grupo | Itens |
+|-------|-------|
+| **Visao Geral** | Painel Geral, Eventos, Registros |
+| **Operacoes** | Requests, Queries, Jobs, Mail, Cache, Commands |
+| **Seguranca e Acesso** | Seguranca, Logins, Config |
+| **Integracoes** | Webhooks In, Webhooks Out, Fallback |
+| *(fixo, sem grupo)* | Projetos |
 
-### 2. `src/pages/WebhooksOutPage.tsx`
-GenericEventPage com `type="webhook_out"`, titulo "Webhooks Enviados", icone `ArrowUpRight`.
+### 2. Dashboard: Resumo simplificado no topo
+Adicionar um banner de status humano acima dos cards, com frases simples baseadas nos dados:
 
-### 3. `src/pages/LoginsPage.tsx`
-GenericEventPage com `type="login"`, titulo "Logins", icone `LogIn`.
+- **Tudo OK (score >= 80):** "Seu sistema esta funcionando normalmente. Nenhuma acao necessaria."
+- **Atencao (score 50-79):** "Alguns problemas detectados. X erros nas ultimas 24h."
+- **Critico (score < 50):** "Atencao! Problemas criticos detectados. Verifique os erros abaixo."
 
-### 4. `src/pages/ConfigChangesPage.tsx`
-GenericEventPage com `type="config_change"`, titulo "Alteracoes de Config", icone `Settings`.
+Sera um componente `StatusBanner` com icone, cor e texto descritivo, posicionado antes do SystemHealthBar.
 
-### 5. `src/pages/AcquirerSwitchPage.tsx`
-GenericEventPage com `type="acquirer_switch"`, titulo "Fallback de Adquirentes", icone `RefreshCw`.
+### 3. Tooltips explicativos nos cards
+Adicionar tooltips (ao passar o mouse) nos cards principais explicando o que significam em linguagem simples:
 
----
+- **Requisicoes Hoje:** "Quantas vezes seu sistema foi chamado hoje"
+- **Erros Hoje:** "Quantidade de falhas nas operacoes"
+- **Jobs Processados:** "Tarefas automaticas que o sistema executou"
+- **Alertas de Seguranca:** "Tentativas suspeitas de acesso detectadas"
+- **Saude do Sistema:** "Nota geral baseada em erros e velocidade de resposta"
 
-## Arquivos a Modificar
-
-### 6. `src/components/TelescopeSidebar.tsx`
-- Importar icones: `ArrowDownLeft`, `ArrowUpRight`, `LogIn`, `Settings`, `RefreshCw`
-- Adicionar 5 novos itens no array `navItems` (antes de "Registros"):
-  - Webhooks Recebidos (`/webhooks-in`, ArrowDownLeft, `counts?.webhook_in`)
-  - Webhooks Enviados (`/webhooks-out`, ArrowUpRight, `counts?.webhook_out`)
-  - Logins (`/logins`, LogIn, `counts?.login`)
-  - Alteracoes de Config (`/config-changes`, Settings, `counts?.config_change`)
-  - Fallback Adquirentes (`/acquirer-switch`, RefreshCw, `counts?.acquirer_switch`)
-
-### 7. `src/App.tsx`
-- Importar as 5 novas paginas
-- Adicionar 5 rotas: `/webhooks-in`, `/webhooks-out`, `/logins`, `/config-changes`, `/acquirer-switch`
-
-### 8. `src/pages/EventsPage.tsx`
-- Importar icones: `ArrowDownLeft`, `ArrowUpRight`, `LogIn`, `Settings`, `RefreshCw`
-- Adicionar ao `typeConfig`:
-  - `webhook_in`: icone ArrowDownLeft, label "Webhook In", cor azul (`bg-blue-500/15 text-blue-400`)
-  - `webhook_out`: icone ArrowUpRight, label "Webhook Out", cor cyan (`bg-cyan-500/15 text-cyan-400`)
-  - `login`: icone LogIn, label "Login", cor roxa (`bg-purple-500/15 text-purple-400`)
-  - `config_change`: icone Settings, label "Config", cor laranja (`bg-orange-500/15 text-orange-400`)
-  - `acquirer_switch`: icone RefreshCw, label "Fallback", cor vermelha (`bg-destructive/15 text-destructive`)
-- Adicionar 5 novos TabsTrigger nos filtros
-
-### 9. `src/hooks/useSupabaseEvents.ts`
-- Adicionar `config_change` e `acquirer_switch` ao array de types em `useEventCounts` (os outros 3 ja existem)
+### 4. Feed de atividade com labels mais claros
+Atualizar o `RecentActivityFeed` para incluir os 5 novos tipos de evento no `typeConfig` (webhook_in, webhook_out, login, config_change, acquirer_switch) que estao faltando.
 
 ---
 
 ## Detalhes Tecnicos
 
-### Cores por tipo
-| Tipo | Cor | Classe Tailwind |
-|------|-----|-----------------|
-| webhook_in | Azul | `bg-blue-500/15 text-blue-400` |
-| webhook_out | Cyan | `bg-cyan-500/15 text-cyan-400` |
-| login | Roxo | `bg-purple-500/15 text-purple-400` |
-| config_change | Laranja | `bg-orange-500/15 text-orange-400` |
-| acquirer_switch | Vermelho | `bg-destructive/15 text-destructive` |
+### Arquivos a Criar
+- `src/components/StatusBanner.tsx` — Banner de status simplificado com frase descritiva
 
-### Detalhes expandidos
-Os campos meta de cada tipo serao renderizados automaticamente pelo sistema existente de `Object.entries(meta)` no EventRow -- nao precisa de tratamento especial pois o GenericEventPage e o EventsPage ja iteram sobre todos os campos do meta JSON.
+### Arquivos a Modificar
+- `src/components/TelescopeSidebar.tsx` — Agrupar itens em secoes colapsaveis usando estado local
+- `src/pages/DashboardOverview.tsx` — Adicionar StatusBanner no topo e tooltips nos cards
+- `src/components/RecentActivityFeed.tsx` — Adicionar os 5 novos tipos ao typeConfig
 
-### Icones Lucide usados
-- `ArrowDownLeft` para webhook_in
-- `ArrowUpRight` para webhook_out
-- `LogIn` para login
-- `Settings` para config_change
-- `RefreshCw` para acquirer_switch
+### Sidebar: Implementacao dos grupos
+Usar um array de grupos com estado `openGroups` (Set) para controlar quais estao expandidos. O grupo que contem a rota ativa abre automaticamente. Cada grupo tera um header clicavel com chevron de rotacao.
+
+```text
+interface SidebarGroup {
+  label: string;
+  items: NavItem[];
+}
+```
+
+### StatusBanner: Logica
+```text
+score >= 80 → verde, icone check, "Sistema funcionando normalmente"
+score 50-79 → amarelo, icone alerta, "Alguns problemas detectados"
+score < 50  → vermelho, icone erro, "Problemas criticos detectados"
+```
 
