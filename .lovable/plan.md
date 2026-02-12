@@ -1,47 +1,90 @@
+# Detectar Queda do Gateway (Monitoramento de Inatividade)
 
+## Problema Atual
 
-# Limpeza Automatica de Eventos (Retencao 90 Dias)
+O painel mostra "Sistema funcionando normalmente" mesmo quando o gateway para de enviar eventos. Isso acontece porque a logica atual so analisa erros entre os eventos existentes, mas nao detecta a *ausencia* de novos eventos.
 
-## O que vai acontecer
-Todo dia, automaticamente, o sistema vai apagar eventos com mais de 90 dias. Voce nao precisa fazer nada manualmente.
+## Solucao
 
-## Como funciona
+### 1. Detectar gap de inatividade
 
-O banco de dados vai executar uma tarefa agendada (cron job) que roda uma vez por dia, a meia-noite (UTC), e deleta todos os eventos com `created_at` anterior a 90 dias atras.
+Comparar o horario do ultimo evento recebido com o horario atual. Se passou mais tempo do que o esperado, considerar o sistema inativo.
 
-## Mudancas Tecnicas
+Regras:
 
-### 1. Habilitar extensoes necessarias
-Ativar `pg_cron` e `pg_net` no banco para permitir tarefas agendadas.
+- **Sem eventos nas ultimas 24h**: Score vai a 0, banner vermelho com "Gateway parece estar offline"
+- **Sem eventos nos ultimos 30 minutos**: Penalidade de -40 pontos no score
+- **Sem eventos nos ultimos 10 minutos**: Penalidade de -20 pontos no score
 
-### 2. Criar funcao de limpeza no banco
-Uma funcao SQL `cleanup_old_events()` que:
-- Deleta eventos onde `created_at < now() - interval '90 days'`
-- Retorna a quantidade de registros removidos
+### 2. Expor timestamp do ultimo evento
 
-### 3. Agendar execucao diaria
-Usar `pg_cron` para rodar `cleanup_old_events()` todo dia a meia-noite UTC:
+Adicionar `lastEventAt` ao retorno do hook `useGatewayStats` para que os componentes saibam quando foi o ultimo evento.
 
-```text
-Agenda: '0 0 * * *' (meia-noite UTC, todo dia)
-Acao: DELETE FROM events WHERE created_at < now() - interval '90 days'
-```
+### 3. Atualizar StatusBanner
 
-### 4. Criar indice para performance
-Adicionar um indice na coluna `created_at` da tabela `events` para que a limpeza seja rapida mesmo com muitos registros.
+Antes de calcular o score normal, verificar se ha inatividade. Se o ultimo evento foi ha mais de 30 minutos, mostrar um banner especifico:
 
 ```text
-CREATE INDEX idx_events_created_at ON events(created_at);
+Vermelho: "Seu gateway parece estar offline. Nenhum evento recebido nos ultimos X minutos."
+Amarelo:  "Atencao: nenhum evento recebido nos ultimos X minutos."
 ```
 
-## Estimativas de volume
-| Eventos/dia | Total em 90 dias | Deletados/dia |
-|-------------|-------------------|---------------|
-| 1.000 | ~90.000 | ~1.000 |
-| 5.000 | ~450.000 | ~5.000 |
-| 10.000 | ~900.000 | ~10.000 |
+### 4. Atualizar SystemHealthBar
 
-## Resumo dos arquivos/recursos
-- **Migracao SQL**: Criar indice `idx_events_created_at`, funcao `cleanup_old_events()`, e agendar cron job diario
-- **Nenhum arquivo de codigo modificado** — tudo acontece no banco de dados automaticamente
+Incluir a penalidade de inatividade nos fatores da barra de saude, com label descritivo:
 
+```text
+"Sem eventos ha X minutos" → -20 a -100 pontos
+```
+
+---
+
+## Detalhes Tecnicos
+
+### Arquivos a Modificar
+
+`**src/hooks/useGatewayStats.ts**`
+
+- Calcular `lastEventAt` a partir do evento mais recente no array
+- Adicionar ao tipo `GatewayStats` e ao retorno do hook
+
+`**src/components/StatusBanner.tsx**`
+
+- Calcular minutos desde o ultimo evento usando `lastEventAt`
+- Se inativo > 30min: mostrar banner vermelho/amarelo de inatividade *em vez de* banner normal
+- Se inativo > 10min: adicionar penalidade extra no calculo do score
+
+`**src/components/SystemHealthBar.tsx**`
+
+- Importar `lastEventAt` do hook
+- Calcular minutos de inatividade
+- Adicionar fator ao array `factors` com penalidade proporcional:
+  - Sem eventos ha 10-30min: -20 pontos
+  - Sem eventos ha 30-60min: -40 pontos
+  - Sem eventos ha mais de 1h: -70 pontos
+  - Sem eventos ha mais de 24h: -100 pontos (score vai a 0)
+
+### Logica de Inatividade (pseudocodigo)
+
+```text
+lastEventAt = max(events.created_at) ou null
+minutesInactive = lastEventAt ? (now - lastEventAt) / 60000 : Infinity
+
+if minutesInactive > 1440 (24h)  → penalty = 100
+if minutesInactive > 60  (1h)    → penalty = 70
+if minutesInactive > 30  (30min) → penalty = 40
+if minutesInactive > 10  (10min) → penalty = 20
+else                             → penalty = 0
+```
+
+Preciso de 3 coisas alem do que voce ja propos:
+
+  1. Health check ativo: A cada 2 minutos, fazer um fetch em https://app.sellxpay.com.br/api/v1/health. Se retornar qualquer coisa diferente de 200, marcar como DOWN imediatamente (sem esperar gap de eventos).
+
+   Mostrar o HTTP status code no banner.
+
+  2. Combinar as duas detecções: O score final deve considerar AMBOS - o health check ativo E o gap de inatividade. Se o health check falha, score vai a 0 instantaneamente. Se o health check passa mas nao tem
+
+  eventos novos, aplicar as penalidades de inatividade que voce propos.
+
+  3. Notificação externa: Quando o status mudar de OK para DOWN, disparar uma notificacao (webhook, email ou Telegram) para eu ser avisado mesmo fora do painel.
