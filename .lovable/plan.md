@@ -1,139 +1,110 @@
 
-# Dashboard com Dados Reais e Graficos do Gateway de Pagamento
+# Remover Dados Mockup Restantes
 
-## Visao Geral
+## Dados Mockup Identificados
 
-Substituir todos os dados mock do Dashboard Overview e da pagina de Eventos por dados reais vindos da tabela `events` do banco de dados, com atualizacao em tempo real via Supabase Realtime. Criar graficos especificos para o dominio de pagamentos e uma lista de eventos com filtros e detalhes expandiveis.
+Após a implementação do dashboard com dados reais (payment gateway), ainda existem **6 páginas e 2 componentes** utilizando dados mockup que não são mais relevantes para o projeto:
 
-## Estrutura das Mudancas
+### Páginas com dados mockup (não são integradas com o gateway real):
+1. **MailPage** (`src/pages/MailPage.tsx`) — lista de e-mails (mockData: `mails`)
+2. **CachePage** (`src/pages/CachePage.tsx`) — operações de cache (mockData: `cacheEntries`)
+3. **QueriesPage** (`src/pages/QueriesPage.tsx`) — consultas ao banco (mockData: `queries`)
+4. **CommandsPage** (`src/pages/CommandsPage.tsx`) — comandos executados (mockData: `commands`)
+5. **ExceptionsPage** (`src/pages/ExceptionsPage.tsx`) — exceções/erros (mockData: `exceptions`)
+6. **JobsPage** (`src/pages/JobsPage.tsx`) — tarefas em fila (mockData: `jobs`)
 
-### 1. Novo hook: `useGatewayStats` (`src/hooks/useGatewayStats.ts`)
+### Páginas/Componentes usando mockup como fallback:
+7. **TimelinePage** (`src/pages/TimelinePage.tsx`) — usa `allEntries` do mockData (deveria mostrar eventos reais)
+8. **LogsPage** (`src/pages/LogsPage.tsx`) — usa `staticLogs`, `staticRequests`, `staticExceptions` como fallback
 
-Hook centralizado que consome `useSupabaseEvents` e calcula todas as metricas do gateway:
+### Componentes/Hooks desatualizados:
+9. **useRealtimeData** (`src/hooks/useRealtimeData.ts`) — gera dados mockup aleatórios (deprecado)
+10. **RealtimeContext** (`src/contexts/RealtimeContext.tsx`) — usado por componentes mockup
+11. **LiveNotification** (`src/components/LiveNotification.tsx`) — usa AnyEntry do mockData
 
-- **Contadores de hoje**: pagamentos hoje, saques hoje, testes hoje
-- **Valor total recebido hoje**: soma de `meta.amount` dos eventos `payment`
-- **Valor total sacado hoje**: soma de `meta.amount` dos eventos `withdrawal`
-- **Dados para graficos**: agrupamento por hora/dia para volume de pagamentos e saques
-- **Proporção**: contagem de payment vs withdrawal para grafico de pizza/donut
-- **Sparklines**: series temporais simplificadas para os cards
+---
 
-### 2. Dashboard Overview reescrito (`src/pages/DashboardOverview.tsx`)
+## Estrategia de Remocao
 
-Substituir completamente o dashboard mock por um focado no gateway de pagamento:
+### Opcao Escolhida: Remocao Completa
 
-**Cards principais (3 colunas)**:
-- Pagamentos Hoje (count + sparkline + trend vs ontem)
-- Saques Hoje (count + sparkline)
-- Valor Recebido Hoje (R$ formatado)
+Como o projeto agora é focado **EXCLUSIVAMENTE** em monitoramento de gateway de pagamento (payment, withdrawal, test), as páginas mockup de Telescope genérico (Mail, Cache, Queries, Commands, Exceptions, Jobs, Timeline) não fazem mais sentido.
 
-**Cards secundarios (compactos)**:
-- Total de Eventos
-- Erros (eventos com status "error")
-- Testes de Conexao
+### Mudancas:
 
-**Grafico principal - Volume por Hora/Dia**:
-- AreaChart com duas series: pagamentos e saques
-- Seletor de periodo (1h, 6h, 24h, 7d)
-- Legenda clicavel para esconder/mostrar series
+1. **Deletar arquivo `src/data/mockData.ts`** — remove todas as definicoes e dados mockup
 
-**Grafico secundario - Valor Acumulado**:
-- AreaChart mostrando a soma acumulada de R$ recebidos ao longo do tempo
+2. **Deletar 6 páginas mockup** (não usadas no novo dominio):
+   - `src/pages/MailPage.tsx`
+   - `src/pages/CachePage.tsx`
+   - `src/pages/QueriesPage.tsx`
+   - `src/pages/CommandsPage.tsx`
+   - `src/pages/ExceptionsPage.tsx`
+   - `src/pages/JobsPage.tsx`
 
-**Grafico de proporcao - Pagamentos vs Saques**:
-- Barra horizontal ou mini donut mostrando a distribuicao
+3. **Deletar/Refatorar TimelinePage**:
+   - `src/pages/TimelinePage.tsx` — remover (substitui-se pelo EventsPage que ja mostra timeline real)
 
-**Feed de atividade recente**:
-- Lista dos ultimos 10 eventos reais (substituindo o mock)
-- Cada item mostra tipo, summary, valor e horario
-- Clique expande para detalhes do meta
+4. **Refatorar LogsPage** (`src/pages/LogsPage.tsx`):
+   - Remover importacoes de mockData
+   - Adaptar para consumir dados reais de `useSupabaseEvents`
 
-**Saude dos Provedores (Acquirers)**:
-- Extrair acquirers unicos dos `meta.acquirer` dos eventos
-- Mostrar status baseado na taxa de sucesso recente de cada acquirer
+5. **Deletar hooks/componentes obsoletos**:
+   - `src/hooks/useRealtimeData.ts` — nao é mais usado
+   - `src/components/LiveNotification.tsx` — baseado em mockData (pode estar nao utilizado)
 
-### 3. Pagina de Eventos reescrita (`src/pages/EventsPage.tsx`)
+6. **Atualizar RealtimeContext**:
+   - Remover se nao estiver sendo usado, ou refatorar para trabalhar com dados reais
 
-Substituir a pagina mock por uma lista de eventos reais com:
-
-**Filtros**:
-- Tabs ou botoes para filtrar por tipo: Todos | Pagamentos | Saques | Testes
-- Busca por texto no campo summary
-
-**Tabela de eventos**:
-- Colunas: Tipo (badge colorido), Status (badge), Summary, Valor (de meta.amount), Horario
-- Ordenacao por data (mais recente primeiro)
-
-**Detalhes expandiveis**:
-- Ao clicar numa linha, expande para mostrar todos os campos `meta`:
-  - Payment: transaction_id, amount (formatado R$), method, acquirer, user_email
-  - Withdrawal: withdrawal_id, amount (formatado R$), user_email
-  - Test: (sem meta adicional)
-
-### 4. Feed de atividade real (`src/components/RecentActivityFeed.tsx`)
-
-Atualizar para consumir eventos reais do banco:
-- Usar `useSupabaseEvents` com limite de 10
-- Mapear tipos payment/withdrawal/test para icones e labels
-- Mostrar valor e horario relativo
-
-### 5. Sidebar atualizada (`src/components/TelescopeSidebar.tsx`)
-
-- Atualizar contadores na sidebar para refletir os tipos reais (payment, withdrawal, test)
-- Renomear itens do menu que nao se aplicam mais ao dominio
+7. **Atualizar routes/navigation** (`src/App.tsx`):
+   - Remover rotas para MailPage, CachePage, QueriesPage, CommandsPage, ExceptionsPage, JobsPage, TimelinePage
+   - Manter apenas: Dashboard, Events (reais), ClientRequests, Requests, Projects, Auth
 
 ---
 
 ## Detalhes Tecnicos
 
-### Hook `useGatewayStats`
+### Rota de Navegacao
 
+As rotas mockup serão removidas:
 ```text
-Entrada: projectId (do ProjectContext)
-Saida:
-  - paymentsToday: number
-  - withdrawalsToday: number
-  - totalReceivedToday: number (soma meta.amount dos payments)
-  - totalWithdrawnToday: number
-  - errorsToday: number
-  - testsToday: number
-  - hourlyData: { hour: string, payments: number, withdrawals: number, paymentAmount: number }[]
-  - cumulativeData: { hour: string, total: number }[]
-  - acquirerStats: { name: string, count: number, successRate: number }[]
-  - recentEvents: DbEvent[] (ultimos 10)
+REMOVIDAS:
+- /mails
+- /cache
+- /queries
+- /commands
+- /exceptions
+- /jobs
+- /timeline
+
+MANTIDAS (dados reais):
+- /dashboard
+- /events (EventsPage com filtros)
+- /client-requests (ClientRequestsPage)
+- /requests (RequestsPage)
+- /projects
+- /auth
 ```
 
-Toda a logica de agregacao sera feita no cliente a partir dos eventos ja carregados pelo `useSupabaseEvents`. Para periodos maiores (7d), sera feita query com filtro `from/to`.
+### LogsPage
 
-### Formatacao de valores
+LogsPage precisará ser refatorado para:
+- Remover importacoes de mockData
+- Consumir dados de `useSupabaseEvents` ou criar um hook similar
+- Mapear eventos reais (payment, withdrawal, test) para o formato UnifiedLog
 
-- Usar `Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })` para formatar valores em Reais
-- Sparklines usam o componente SVG ja existente `SparklineCard`
+### Verificacoes
 
-### Realtime
+- Verificar se LiveNotification esta sendo utilizado em algum lugar (provavelmente não)
+- Verificar se RealtimeContext ainda é necessario ou pode ser removido
 
-O `useSupabaseEvents` ja possui subscription Realtime. Novos eventos payment/withdrawal aparecerao automaticamente nos contadores e graficos sem refresh.
+---
 
-### Graficos
+## Resultado Final
 
-Reutilizar Recharts (ja instalado):
-- `AreaChart` para volume por hora e valor acumulado
-- `PieChart` ou barra horizontal para proporcao payment/withdrawal
-- Manter o estilo visual atual (gradientes, cores do tema)
+Apos remocao:
+- **Projeto 100% focado em payment gateway**
+- **Apenas dados reais do banco aparecem no dashboard**
+- **Codebase mais limpo e sem dependencias de dados mockup**
+- **Sidebar e navegacao refletindo apenas funcionalidades relevantes**
 
-### Pagina de Eventos - Filtros
-
-Usar estado local com tabs para tipo e input para busca. Passar os filtros para `useSupabaseEvents` via parametros `type` e `search`.
-
-### Arquivos a criar
-
-- `src/hooks/useGatewayStats.ts`
-
-### Arquivos a modificar
-
-- `src/pages/DashboardOverview.tsx` (reescrever com dados reais)
-- `src/pages/EventsPage.tsx` (reescrever com dados reais + filtros + detalhes)
-- `src/components/RecentActivityFeed.tsx` (usar dados reais)
-- `src/components/TelescopeSidebar.tsx` (ajustar labels e contadores)
-- `src/components/SystemHealthBar.tsx` (basear em dados reais)
-- `src/components/ProviderHealth.tsx` (basear em acquirers reais)
