@@ -34,7 +34,7 @@ export function SystemHealthBar() {
     factors.push({ label: "Sem eventos recebidos", impact: -10 });
   }
 
-  const score = Math.max(0, Math.min(100, 100 + factors.reduce((sum, f) => sum + f.impact, 0)));
+  const score = Math.round(Math.max(0, Math.min(100, 100 + factors.reduce((sum, f) => sum + f.impact, 0))));
   const color = getHealthColor(score);
   const label = getHealthLabel(score);
 
