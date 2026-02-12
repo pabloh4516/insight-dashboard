@@ -12,12 +12,30 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const token = Deno.env.get('GATEWAY_HEALTH_TOKEN');
+  if (!token) {
+    return new Response(JSON.stringify({
+      isUp: false,
+      status: null,
+      statusCode: null,
+      checks: null,
+      error: 'GATEWAY_HEALTH_TOKEN not configured',
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch(HEALTH_URL, {
       method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
       signal: controller.signal,
     });
     clearTimeout(timeout);
