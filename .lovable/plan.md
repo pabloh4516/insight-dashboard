@@ -1,45 +1,44 @@
 
 
-# Persistir Historico de Health Checks
+# Corrigir Adquirentes e Contagem do Menu Lateral
 
-## Problema
+## Problema 1: Apenas uma adquirente aparecendo no ProviderHealth
 
-O historico de health checks e armazenado apenas em memoria (React state). Ao recarregar a pagina ou navegar, todos os checks anteriores sao perdidos. O usuario ve a timeline quase vazia porque so tem os checks feitos desde o ultimo carregamento.
+O componente `ProviderHealth` usa o hook `useGatewayStats`, que calcula as adquirentes a partir do campo `meta.acquirer` dos **eventos** salvos na tabela `events`. Se apenas a Cyberpayment tem eventos com esse campo preenchido, somente ela aparece.
 
-## Solucao
+Ja o componente `AcquirerHealthTable` usa `useHealthCheck`, que busca os dados diretamente da **API de saude** (`/api/v1/health`) -- por isso mostra todas as adquirentes corretamente.
 
-Salvar cada resultado de health check em uma tabela no banco de dados, e ao carregar o dashboard, buscar os ultimos 30 registros para popular a timeline imediatamente.
+### Solucao
 
-## Etapas
+Unificar a fonte de dados de adquirentes: o `ProviderHealth` deve usar os dados vindos da API de saude (do `useHealthCheck`) em vez de calcular a partir dos eventos. Isso garante que todas as adquirentes retornadas pela API aparecem, nao apenas as que tem eventos registrados.
 
-### 1. Criar tabela `health_check_log`
+## Problema 2: Contagem do menu lateral nao limpa ao abrir a pagina
 
-Nova tabela com as colunas:
-- `id` (uuid, PK)
-- `project_id` (uuid, FK para projects)
-- `checked_at` (timestamptz)
-- `is_up` (boolean)
-- `status` (text - operational/degraded/down)
-- `status_code` (integer, nullable)
-- `checks` (jsonb, nullable - dados detalhados dos componentes)
+O `useEventCounts` retorna a contagem total de eventos por tipo e mostra no sidebar. Esses numeros nunca sao zerados/limpos quando o usuario navega para a pagina correspondente, dando a impressao de que sao notificacoes nao lidas acumulando.
 
-Politica RLS: leitura para usuarios autenticados do projeto; insert via service role (edge function).
+### Solucao
 
-### 2. Atualizar a Edge Function `health-check`
+Implementar um sistema de "leitura" por pagina: ao navegar para uma pagina (ex: `/requests`), marcar aquele tipo como "visto" e exibir apenas a contagem de eventos **novos desde a ultima visita**. Isso pode ser feito armazenando o timestamp da ultima visita a cada pagina no `localStorage` e filtrando a contagem para mostrar apenas eventos com `created_at` posterior a esse timestamp.
 
-Apos consultar o endpoint de saude, inserir o resultado na tabela `health_check_log` usando o Supabase client com service role key.
+## Etapas Tecnicas
 
-### 3. Atualizar o hook `useHealthCheck`
+### 1. Alterar ProviderHealth para usar dados do health check
 
-- Ao inicializar, buscar os ultimos 30 registros da tabela `health_check_log` para popular `history` imediatamente
-- Continuar com o polling normal a cada 2 minutos, adicionando novos entries ao estado local (que tambem serao salvos pela edge function)
+- Importar `useHealthCheck` em vez de `useGatewayStats`
+- Usar `checks.acquirers` (que vem da API de saude) para renderizar a lista
+- Manter o layout visual atual, adaptando os campos (`transactions_24h`, `success_rate`, `last_transaction_at`)
 
-### 4. Limpeza automatica
+### 2. Criar sistema de contagem "nao lida" no sidebar
 
-Adicionar uma politica de retencao (similar a tabela `events`) para manter apenas 7 dias de historico de health checks.
+- Criar um hook `useLastVisited` que armazena no `localStorage` um mapa `{ [eventType]: timestamp }` com a data da ultima visita a cada pagina
+- Atualizar `useEventCounts` para aceitar um filtro `since` por tipo, contando apenas eventos com `created_at > lastVisited`
+- No `TelescopeSidebar`, usar o timestamp salvo para cada tipo ao exibir a contagem
+- Ao navegar para uma pagina, atualizar o timestamp daquele tipo no `localStorage`
 
-## Detalhes Tecnicos
+### 3. Arquivos modificados
 
-- A edge function usara `SUPABASE_SERVICE_ROLE_KEY` (ja disponivel automaticamente) para inserir na tabela
-- O frontend fara SELECT com o client autenticado (anon key + RLS)
-- A timeline continuara mostrando 30 blocos, mas agora com dados persistidos entre sessoes
+- `src/components/ProviderHealth.tsx` -- trocar de `useGatewayStats` para `useHealthCheck`
+- `src/hooks/useSupabaseEvents.ts` -- adicionar filtro `since` no `useEventCounts`
+- `src/components/TelescopeSidebar.tsx` -- integrar sistema de "ultima visita" para limpar contagens
+- `src/hooks/useLastVisited.ts` -- novo hook para gerenciar timestamps de ultima visita por pagina
+
