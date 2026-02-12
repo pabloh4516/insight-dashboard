@@ -1,70 +1,47 @@
 
 
-# Simplificar o Monitoramento
+# Limpeza Automatica de Eventos (Retencao 90 Dias)
 
-## Problema
-O painel tem muitas informacoes tecnicas e a sidebar lista 17 itens sem organizacao, o que dificulta o uso para quem nao e tecnico.
+## O que vai acontecer
+Todo dia, automaticamente, o sistema vai apagar eventos com mais de 90 dias. Voce nao precisa fazer nada manualmente.
 
-## Mudancas Propostas
+## Como funciona
 
-### 1. Sidebar: Agrupar em secoes colapsaveis
-Organizar os 17 itens em 4 grupos logicos com titulos claros. Grupos fechados por padrao, exceto o que contem a rota ativa.
+O banco de dados vai executar uma tarefa agendada (cron job) que roda uma vez por dia, a meia-noite (UTC), e deleta todos os eventos com `created_at` anterior a 90 dias atras.
 
-| Grupo | Itens |
-|-------|-------|
-| **Visao Geral** | Painel Geral, Eventos, Registros |
-| **Operacoes** | Requests, Queries, Jobs, Mail, Cache, Commands |
-| **Seguranca e Acesso** | Seguranca, Logins, Config |
-| **Integracoes** | Webhooks In, Webhooks Out, Fallback |
-| *(fixo, sem grupo)* | Projetos |
+## Mudancas Tecnicas
 
-### 2. Dashboard: Resumo simplificado no topo
-Adicionar um banner de status humano acima dos cards, com frases simples baseadas nos dados:
+### 1. Habilitar extensoes necessarias
+Ativar `pg_cron` e `pg_net` no banco para permitir tarefas agendadas.
 
-- **Tudo OK (score >= 80):** "Seu sistema esta funcionando normalmente. Nenhuma acao necessaria."
-- **Atencao (score 50-79):** "Alguns problemas detectados. X erros nas ultimas 24h."
-- **Critico (score < 50):** "Atencao! Problemas criticos detectados. Verifique os erros abaixo."
+### 2. Criar funcao de limpeza no banco
+Uma funcao SQL `cleanup_old_events()` que:
+- Deleta eventos onde `created_at < now() - interval '90 days'`
+- Retorna a quantidade de registros removidos
 
-Sera um componente `StatusBanner` com icone, cor e texto descritivo, posicionado antes do SystemHealthBar.
-
-### 3. Tooltips explicativos nos cards
-Adicionar tooltips (ao passar o mouse) nos cards principais explicando o que significam em linguagem simples:
-
-- **Requisicoes Hoje:** "Quantas vezes seu sistema foi chamado hoje"
-- **Erros Hoje:** "Quantidade de falhas nas operacoes"
-- **Jobs Processados:** "Tarefas automaticas que o sistema executou"
-- **Alertas de Seguranca:** "Tentativas suspeitas de acesso detectadas"
-- **Saude do Sistema:** "Nota geral baseada em erros e velocidade de resposta"
-
-### 4. Feed de atividade com labels mais claros
-Atualizar o `RecentActivityFeed` para incluir os 5 novos tipos de evento no `typeConfig` (webhook_in, webhook_out, login, config_change, acquirer_switch) que estao faltando.
-
----
-
-## Detalhes Tecnicos
-
-### Arquivos a Criar
-- `src/components/StatusBanner.tsx` — Banner de status simplificado com frase descritiva
-
-### Arquivos a Modificar
-- `src/components/TelescopeSidebar.tsx` — Agrupar itens em secoes colapsaveis usando estado local
-- `src/pages/DashboardOverview.tsx` — Adicionar StatusBanner no topo e tooltips nos cards
-- `src/components/RecentActivityFeed.tsx` — Adicionar os 5 novos tipos ao typeConfig
-
-### Sidebar: Implementacao dos grupos
-Usar um array de grupos com estado `openGroups` (Set) para controlar quais estao expandidos. O grupo que contem a rota ativa abre automaticamente. Cada grupo tera um header clicavel com chevron de rotacao.
+### 3. Agendar execucao diaria
+Usar `pg_cron` para rodar `cleanup_old_events()` todo dia a meia-noite UTC:
 
 ```text
-interface SidebarGroup {
-  label: string;
-  items: NavItem[];
-}
+Agenda: '0 0 * * *' (meia-noite UTC, todo dia)
+Acao: DELETE FROM events WHERE created_at < now() - interval '90 days'
 ```
 
-### StatusBanner: Logica
+### 4. Criar indice para performance
+Adicionar um indice na coluna `created_at` da tabela `events` para que a limpeza seja rapida mesmo com muitos registros.
+
 ```text
-score >= 80 → verde, icone check, "Sistema funcionando normalmente"
-score 50-79 → amarelo, icone alerta, "Alguns problemas detectados"
-score < 50  → vermelho, icone erro, "Problemas criticos detectados"
+CREATE INDEX idx_events_created_at ON events(created_at);
 ```
+
+## Estimativas de volume
+| Eventos/dia | Total em 90 dias | Deletados/dia |
+|-------------|-------------------|---------------|
+| 1.000 | ~90.000 | ~1.000 |
+| 5.000 | ~450.000 | ~5.000 |
+| 10.000 | ~900.000 | ~10.000 |
+
+## Resumo dos arquivos/recursos
+- **Migracao SQL**: Criar indice `idx_events_created_at`, funcao `cleanup_old_events()`, e agendar cron job diario
+- **Nenhum arquivo de codigo modificado** — tudo acontece no banco de dados automaticamente
 
