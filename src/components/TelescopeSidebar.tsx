@@ -18,6 +18,7 @@ export function TelescopeSidebar() {
 
   const navItems = [
     { title: "Painel Geral", url: "/", icon: LayoutDashboard, count: counts?.total ?? null },
+    { title: "Pagamentos", url: "/events", icon: Zap, count: counts?.payment ?? null },
     { title: "Requisições", url: "/requests", icon: Globe, count: counts?.request ?? null },
     { title: "Chamadas Externas", url: "/client-requests", icon: Send, count: counts?.webhook_out ?? null },
     { title: "Tarefas", url: "/jobs", icon: Briefcase, count: counts?.job ?? null },
@@ -25,7 +26,6 @@ export function TelescopeSidebar() {
     { title: "Registros", url: "/logs", icon: FileText, count: null },
     { title: "Consultas ao Banco", url: "/queries", icon: Database, count: null },
     { title: "E-mails", url: "/mail", icon: Mail, count: counts?.email ?? null },
-    { title: "Eventos", url: "/events", icon: Zap, count: null },
     { title: "Cache", url: "/cache", icon: HardDrive, count: null },
     { title: "Comandos", url: "/commands", icon: Terminal, count: null },
     { title: "Linha do Tempo", url: "/timeline", icon: Clock, count: null },
