@@ -2,7 +2,8 @@ import { LucideIcon, Search, ChevronDown, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useSupabaseEvents, DbEvent } from "@/hooks/useSupabaseEvents";
 import { useProject } from "@/contexts/ProjectContext";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { PaginationControls } from "@/components/PaginationControls";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -88,15 +89,30 @@ export function GenericEventPage({ type, title, subtitle, icon }: GenericEventPa
   const { selectedProject } = useProject();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const { events, liveEvents, isLoading } = useSupabaseEvents({
     projectId: selectedProject?.id ?? null,
     type,
     status: statusFilter === "all" ? undefined : statusFilter,
-        search: search || undefined,
+    search: search || undefined,
   });
 
   const liveIds = useMemo(() => new Set(liveEvents.map(e => e.id)), [liveEvents]);
+
+  const totalPages = Math.max(1, Math.ceil(events.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedEvents = useMemo(
+    () => events.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage),
+    [events, safePage, itemsPerPage]
+  );
+
+  const handlePageChange = useCallback((page: number) => setCurrentPage(page), []);
+  const handleItemsPerPageChange = useCallback((count: number) => {
+    setItemsPerPage(count);
+    setCurrentPage(1);
+  }, []);
 
   return (
     <div>
@@ -147,7 +163,17 @@ export function GenericEventPage({ type, title, subtitle, icon }: GenericEventPa
             Nenhum evento encontrado. Envie eventos do tipo "{type}" pelo seu gateway.
           </div>
         ) : (
-          events.map((event) => <EventRow key={event.id} event={event} isLive={liveIds.has(event.id)} />)
+          <>
+            {paginatedEvents.map((event) => <EventRow key={event.id} event={event} isLive={liveIds.has(event.id)} />)}
+            <PaginationControls
+              currentPage={safePage}
+              totalPages={totalPages}
+              itemsPerPage={itemsPerPage}
+              onPageChange={handlePageChange}
+              onItemsPerPageChange={handleItemsPerPageChange}
+              totalItems={events.length}
+            />
+          </>
         )}
       </div>
     </div>
