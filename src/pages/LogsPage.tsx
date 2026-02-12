@@ -1,4 +1,4 @@
-import { Search, Radio, Pause } from 'lucide-react';
+import { Search, Pause, ChevronDown, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ActivityBar } from '@/components/ActivityBar';
@@ -16,20 +16,23 @@ interface UnifiedLog {
   host: string;
   route: string;
   message: string;
+  context?: Record<string, any>;
+  stackTrace?: string[];
+  duration?: number;
 }
 
 const hosts = ['pay.checkout.store', 'api.gateway.com', 'webhook.bspay.io', 'pix.suitpay.com', 'admin.painel.dev'];
-const routes = ['/api/webhooks/bspay', '/api/checkout/create', '/api/pix/generate', '/api/merchant/balance', '/api/admin/dashboard', '/api/webhooks/suitpay'];
 
 function toUnifiedLog(entry: any): UnifiedLog {
   if (entry.type === 'request') {
     const level = entry.statusCode >= 500 ? 'error' : entry.statusCode >= 400 ? 'warning' : 'info';
     return {
       id: entry.id, timestamp: entry.timestamp, level,
-      method: entry.method, statusCode: entry.statusCode,
+      method: entry.method, statusCode: entry.statusCode, duration: entry.duration,
       host: hosts[Math.abs(entry.id.charCodeAt(4)) % hosts.length],
       route: entry.url,
       message: `${entry.method} ${entry.url} — ${entry.duration}ms`,
+      context: { payload: entry.payload, response: entry.response },
     };
   }
   if (entry.type === 'exception') {
@@ -38,6 +41,8 @@ function toUnifiedLog(entry: any): UnifiedLog {
       host: hosts[Math.abs(entry.id.charCodeAt(4)) % hosts.length],
       route: entry.file,
       message: `${entry.class}: ${entry.message}`,
+      context: { class: entry.class, line: entry.line, occurrences: entry.occurrences },
+      stackTrace: entry.stackTrace,
     };
   }
   // log
@@ -46,6 +51,7 @@ function toUnifiedLog(entry: any): UnifiedLog {
     host: entry.host ?? hosts[Math.abs(entry.id.charCodeAt(4)) % hosts.length],
     route: entry.route ?? '-',
     message: entry.message,
+    context: entry.context,
   };
 }
 
@@ -56,7 +62,6 @@ const statusColor: Record<string, string> = {
   error: 'bg-neon-red/10 border-l-2 border-l-neon-red',
 };
 
-const statusBadge: Record<number | string, string> = {};
 function getStatusClass(code?: number) {
   if (!code) return '';
   if (code >= 500) return 'text-neon-red';
@@ -68,6 +73,7 @@ function getStatusClass(code?: number) {
 const LogsPage = () => {
   const { liveEntries, isLive, toggleLive } = useRealtime();
   const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<Record<string, Set<string>>>({
     level: new Set(),
     host: new Set(),
@@ -83,6 +89,14 @@ const LogsPage = () => {
     }
     setLocalLive(prev => !prev);
   }, [isLive, localLive, toggleLive]);
+
+  const toggleExpand = (id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   // Combine all entries into unified logs
   const allLogs = useMemo(() => {
@@ -227,6 +241,7 @@ const LogsPage = () => {
           <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-card/90 backdrop-blur-sm z-10">
               <tr className="border-b border-border text-[10px] font-display uppercase tracking-widest text-muted-foreground">
+                <th className="text-left px-3 py-2 w-6" />
                 <th className="text-left px-3 py-2 w-32">Horário</th>
                 <th className="text-left px-2 py-2 w-14">Método</th>
                 <th className="text-left px-2 py-2 w-14">Status</th>
@@ -236,31 +251,89 @@ const LogsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log, i) => (
-                <tr
-                  key={log.id}
-                  className={`border-b border-border/20 hover:bg-muted/20 transition-colors ${statusColor[log.level] || ''} ${i < 3 && effectiveLive ? 'animate-fade-in' : ''}`}
-                >
-                  <td className="px-3 py-1.5 text-muted-foreground tabular-nums whitespace-nowrap">
-                    {formatTime(log.timestamp)}
-                  </td>
-                  <td className="px-2 py-1.5 font-semibold text-foreground">
-                    {log.method || '—'}
-                  </td>
-                  <td className={`px-2 py-1.5 font-semibold tabular-nums ${getStatusClass(log.statusCode)}`}>
-                    {log.statusCode || '—'}
-                  </td>
-                  <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[160px]">
-                    {log.host}
-                  </td>
-                  <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[192px]">
-                    {log.route}
-                  </td>
-                  <td className="px-2 py-1.5 text-foreground truncate">
-                    {log.message}
-                  </td>
-                </tr>
-              ))}
+              {filteredLogs.map((log, i) => {
+                const isExpanded = expanded.has(log.id);
+                return (
+                  <tbody key={log.id}>
+                    <tr
+                      onClick={() => toggleExpand(log.id)}
+                      className={`border-b border-border/20 hover:bg-muted/20 transition-colors cursor-pointer ${statusColor[log.level] || ''} ${i < 3 && effectiveLive ? 'animate-fade-in' : ''}`}
+                    >
+                      <td className="px-3 py-1.5">
+                        {isExpanded ? <ChevronDown className="h-3 w-3 text-neon-cyan" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                      </td>
+                      <td className="px-3 py-1.5 text-muted-foreground tabular-nums whitespace-nowrap">
+                        {formatTime(log.timestamp)}
+                      </td>
+                      <td className="px-2 py-1.5 font-semibold text-foreground">
+                        {log.method || '—'}
+                      </td>
+                      <td className={`px-2 py-1.5 font-semibold tabular-nums ${getStatusClass(log.statusCode)}`}>
+                        {log.statusCode || '—'}
+                      </td>
+                      <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[160px]">
+                        {log.host}
+                      </td>
+                      <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[192px]">
+                        {log.route}
+                      </td>
+                      <td className="px-2 py-1.5 text-foreground truncate">
+                        {log.message}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="bg-muted/5 border-b border-border/20">
+                        <td colSpan={7} className="px-4 py-4">
+                          <div className="space-y-3">
+                            {/* Status badge */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground">Status</span>
+                              <div className={`px-2 py-1 rounded text-[10px] font-semibold ${
+                                log.level === 'error' ? 'bg-neon-red/20 text-neon-red border border-neon-red/40' :
+                                log.level === 'warning' ? 'bg-neon-yellow/20 text-neon-yellow border border-neon-yellow/40' :
+                                log.level === 'info' ? 'bg-neon-green/20 text-neon-green border border-neon-green/40' :
+                                'bg-muted/30 text-muted-foreground border border-muted/40'
+                              }`}>
+                                {log.level.toUpperCase()}
+                              </div>
+                            </div>
+
+                            {/* Duration */}
+                            {log.duration && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground">Duração</span>
+                                <span className="text-xs text-foreground font-mono">{log.duration}ms</span>
+                              </div>
+                            )}
+
+                            {/* Context */}
+                            {log.context && Object.keys(log.context).length > 0 && (
+                              <div>
+                                <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground block mb-1">Contexto</span>
+                                <pre className="text-[10px] bg-background/50 border border-border/50 rounded p-2 text-neon-green overflow-auto max-h-40 font-mono">
+                                  {JSON.stringify(log.context, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+
+                            {/* Stack Trace */}
+                            {log.stackTrace && log.stackTrace.length > 0 && (
+                              <div>
+                                <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground block mb-1">Stack Trace</span>
+                                <div className="text-[9px] bg-background/50 border border-border/50 rounded p-2 text-neon-red/80 font-mono space-y-0.5 max-h-40 overflow-auto">
+                                  {log.stackTrace.map((line, idx) => (
+                                    <div key={idx}>{line}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                );
+              })}
             </tbody>
           </table>
           {filteredLogs.length === 0 && (
