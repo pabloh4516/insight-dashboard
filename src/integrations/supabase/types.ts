@@ -44,6 +44,44 @@ export type Database = {
         }
         Relationships: []
       }
+      health_check_log: {
+        Row: {
+          checked_at: string
+          checks: Json | null
+          id: string
+          is_up: boolean
+          project_id: string
+          status: string | null
+          status_code: number | null
+        }
+        Insert: {
+          checked_at?: string
+          checks?: Json | null
+          id?: string
+          is_up: boolean
+          project_id: string
+          status?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          checked_at?: string
+          checks?: Json | null
+          id?: string
+          is_up?: boolean
+          project_id?: string
+          status?: string | null
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_check_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_emails: {
         Row: {
           created_at: string
@@ -98,6 +136,7 @@ export type Database = {
     }
     Functions: {
       cleanup_old_events: { Args: never; Returns: number }
+      cleanup_old_health_checks: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never

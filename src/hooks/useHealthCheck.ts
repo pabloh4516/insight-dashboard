@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useProject } from '@/contexts/ProjectContext';
 
 export interface HealthCheckEntry {
   timestamp: string;
@@ -39,7 +40,6 @@ function parseChecks(raw: Record<string, unknown> | null): HealthChecks | null {
   const storage = raw.storage as Record<string, unknown> | undefined;
   const lastTx = raw.last_transaction as Record<string, unknown> | undefined;
   const acqs = raw.acquirers as Array<Record<string, unknown>> | undefined;
-
   const dbConns = db?.connections as Record<string, unknown> | undefined;
 
   return {
@@ -95,21 +95,45 @@ function sendBrowserNotification(title: string, body: string) {
 }
 
 export function useHealthCheck() {
+  const { selectedProject } = useProject();
+  const projectId = selectedProject?.id ?? null;
+
   const [state, setState] = useState<HealthCheckState>({
-    isUp: null,
-    status: null,
-    statusCode: null,
-    lastCheckedAt: null,
-    error: null,
-    checks: null,
-    history: [],
+    isUp: null, status: null, statusCode: null, lastCheckedAt: null, error: null, checks: null, history: [],
   });
   const prevStatus = useRef<string | null>(null);
 
+  // Load persisted history on mount / project change
+  useEffect(() => {
+    if (!projectId) return;
+
+    (async () => {
+      const { data } = await supabase
+        .from('health_check_log' as any)
+        .select('checked_at, is_up, status')
+        .eq('project_id', projectId)
+        .order('checked_at', { ascending: true })
+        .limit(MAX_HISTORY);
+
+      if (data && data.length > 0) {
+        const entries: HealthCheckEntry[] = (data as any[]).map(row => ({
+          timestamp: row.checked_at,
+          status: (['operational', 'degraded', 'down'].includes(row.status) ? row.status : null) as HealthCheckEntry['status'],
+          isUp: row.is_up,
+        }));
+        setState(prev => ({ ...prev, history: entries }));
+      }
+    })();
+  }, [projectId]);
+
   const check = useCallback(async () => {
     const now = new Date().toISOString();
+
     try {
-      const { data, error } = await supabase.functions.invoke('health-check');
+      const { data, error } = await supabase.functions.invoke('health-check', {
+        body: projectId ? { project_id: projectId } : {},
+      });
+
       if (error) {
         const entry: HealthCheckEntry = { timestamp: now, status: null, isUp: false };
         setState(prev => ({
@@ -119,6 +143,7 @@ export function useHealthCheck() {
         handleStatusChange(null);
         return;
       }
+
       const isUp = data?.isUp === true;
       const status = (['operational', 'degraded', 'down'].includes(data?.status) ? data.status : null) as HealthCheckState['status'];
       const statusCode = data?.statusCode ?? null;
@@ -138,7 +163,7 @@ export function useHealthCheck() {
       }));
       handleStatusChange(null);
     }
-  }, []);
+  }, [projectId]);
 
   function handleStatusChange(newStatus: string | null) {
     const wasOk = prevStatus.current === 'operational';
@@ -159,16 +184,9 @@ export function useHealthCheck() {
   useEffect(() => {
     check();
     const interval = setInterval(check, POLL_INTERVAL_MS);
-
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') check();
-    };
+    const onVisibility = () => { if (document.visibilityState === 'visible') check(); };
     document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisibility); };
   }, [check]);
 
   return { ...state, recheckNow: check };
