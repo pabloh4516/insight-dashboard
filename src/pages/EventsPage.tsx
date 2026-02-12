@@ -1,4 +1,4 @@
-import { Zap, CreditCard, ArrowDownToLine, TestTube, Search, ChevronDown, ChevronRight, Globe, AlertTriangle, Briefcase, Mail, Terminal, Database, Shield } from "lucide-react";
+import { Zap, CreditCard, ArrowDownToLine, TestTube, Search, ChevronDown, ChevronRight, Globe, AlertTriangle, Briefcase, Mail, Terminal, Database, Shield, ArrowDownLeft, ArrowUpRight, LogIn, Settings, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useSupabaseEvents, DbEvent } from "@/hooks/useSupabaseEvents";
 import { useProject } from "@/contexts/ProjectContext";
@@ -20,6 +20,11 @@ const typeConfig: Record<string, { icon: typeof Zap; label: string; color: strin
   payment: { icon: CreditCard, label: "Pagamento", color: "bg-primary/15 text-primary" },
   withdrawal: { icon: ArrowDownToLine, label: "Saque", color: "bg-warning/15 text-warning" },
   test: { icon: TestTube, label: "Teste", color: "bg-muted text-muted-foreground" },
+  webhook_in: { icon: ArrowDownLeft, label: "Webhook In", color: "bg-blue-500/15 text-blue-400" },
+  webhook_out: { icon: ArrowUpRight, label: "Webhook Out", color: "bg-cyan-500/15 text-cyan-400" },
+  login: { icon: LogIn, label: "Login", color: "bg-purple-500/15 text-purple-400" },
+  config_change: { icon: Settings, label: "Config", color: "bg-orange-500/15 text-orange-400" },
+  acquirer_switch: { icon: RefreshCw, label: "Fallback", color: "bg-destructive/15 text-destructive" },
 };
 
 const statusConfig: Record<string, string> = {
@@ -130,6 +135,11 @@ const EventsPage = () => {
             <TabsTrigger value="security" className="text-xs px-3 py-1">Segurança</TabsTrigger>
             <TabsTrigger value="payment" className="text-xs px-3 py-1">Pagamentos</TabsTrigger>
             <TabsTrigger value="withdrawal" className="text-xs px-3 py-1">Saques</TabsTrigger>
+            <TabsTrigger value="webhook_in" className="text-xs px-3 py-1">Webhook In</TabsTrigger>
+            <TabsTrigger value="webhook_out" className="text-xs px-3 py-1">Webhook Out</TabsTrigger>
+            <TabsTrigger value="login" className="text-xs px-3 py-1">Logins</TabsTrigger>
+            <TabsTrigger value="config_change" className="text-xs px-3 py-1">Config</TabsTrigger>
+            <TabsTrigger value="acquirer_switch" className="text-xs px-3 py-1">Fallback</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="relative flex-1 max-w-xs">
