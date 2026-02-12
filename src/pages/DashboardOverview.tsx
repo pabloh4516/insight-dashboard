@@ -13,6 +13,9 @@ import { SystemHealthBar } from "@/components/SystemHealthBar";
 import { RecentActivityFeed } from "@/components/RecentActivityFeed";
 import { ProviderHealth } from "@/components/ProviderHealth";
 import { useGatewayStats } from "@/hooks/useGatewayStats";
+import { UptimeTimeline } from "@/components/UptimeTimeline";
+import { ComponentHealthPanel } from "@/components/ComponentHealthPanel";
+import { AcquirerHealthTable } from "@/components/AcquirerHealthTable";
 
 const periods = ["1h", "6h", "24h", "7d"] as const;
 type PeriodKey = typeof periods[number];
@@ -48,6 +51,11 @@ const DashboardOverview = () => {
       {/* Status Banner */}
       <div className="mb-5 animate-fade-up">
         <StatusBanner />
+      </div>
+
+      {/* Uptime Timeline */}
+      <div className="mb-5 animate-fade-up">
+        <UptimeTimeline />
       </div>
 
       {/* Hero */}
@@ -233,12 +241,22 @@ const DashboardOverview = () => {
         </ResponsiveContainer>
       </div>
 
+      {/* Component Health Panel */}
+      <div className="mb-5 animate-fade-up" style={{ animationDelay: '750ms' }}>
+        <ComponentHealthPanel />
+      </div>
+
+      {/* Acquirer Health Table */}
+      <div className="mb-5 animate-fade-up" style={{ animationDelay: '800ms' }}>
+        <AcquirerHealthTable />
+      </div>
+
       {/* Feed + Providers */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 animate-fade-up" style={{ animationDelay: '800ms' }}>
+        <div className="lg:col-span-2 animate-fade-up" style={{ animationDelay: '850ms' }}>
           <RecentActivityFeed />
         </div>
-        <div className="animate-fade-up" style={{ animationDelay: '850ms' }}>
+        <div className="animate-fade-up" style={{ animationDelay: '900ms' }}>
           <ProviderHealth />
         </div>
       </div>

@@ -1,5 +1,4 @@
-import { Activity } from "lucide-react";
-import { useGatewayStats } from "@/hooks/useGatewayStats";
+import { Activity, RefreshCw } from "lucide-react";
 import { useHealthCheck } from "@/hooks/useHealthCheck";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -16,12 +15,13 @@ function getHealthLabel(score: number): string {
 }
 
 export function SystemHealthBar() {
-  const { errorsToday, totalEvents, acquirerStats } = useGatewayStats("24h");
   const hc = useHealthCheck();
 
   const factors: { label: string; impact: number }[] = [];
 
-  // Health check status factor
+  // Force zero conditions
+  const forceZero = (hc.isUp === false && hc.status === null) || hc.status === 'down';
+
   if (hc.isUp === false && hc.status === null) {
     factors.push({ label: `Health check FALHOU${hc.statusCode ? ` (HTTP ${hc.statusCode})` : ''}`, impact: -100 });
   } else if (hc.status === 'down') {
@@ -32,59 +32,51 @@ export function SystemHealthBar() {
     factors.push({ label: "Health check: OK", impact: 0 });
   }
 
-  // Queue critical
-  if (hc.checks?.queue?.status === 'critical') {
-    factors.push({ label: `Fila: ${hc.checks.queue.failed_jobs} jobs falhados`, impact: -20 });
-  } else if (hc.checks?.queue) {
-    factors.push({ label: `Fila: ${hc.checks.queue.failed_jobs} jobs falhados`, impact: 0 });
+  // Component-level penalties
+  if (hc.checks?.database) {
+    const s = hc.checks.database.status;
+    if (s === 'error') factors.push({ label: `Database: erro (${hc.checks.database.latency_ms}ms)`, impact: -40 });
+    else if (s === 'slow') factors.push({ label: `Database: lento (${hc.checks.database.latency_ms}ms)`, impact: -10 });
+    else factors.push({ label: `Database: ok (${hc.checks.database.latency_ms}ms, ${hc.checks.database.connections.active}/${hc.checks.database.connections.max} conn)`, impact: 0 });
   }
 
-  // Inactivity from last_transaction
+  if (hc.checks?.redis) {
+    const s = hc.checks.redis.status;
+    if (s === 'error') factors.push({ label: `Redis: erro (${hc.checks.redis.latency_ms}ms)`, impact: -30 });
+    else if (s === 'slow') factors.push({ label: `Redis: lento (${hc.checks.redis.latency_ms}ms)`, impact: -5 });
+    else factors.push({ label: `Redis: ok (${hc.checks.redis.latency_ms}ms)`, impact: 0 });
+  }
+
+  if (hc.checks?.queue) {
+    const s = hc.checks.queue.status;
+    if (s === 'critical') factors.push({ label: `Fila: crítica (${hc.checks.queue.failed_jobs} falhados)`, impact: -25 });
+    else if (s === 'warning') factors.push({ label: `Fila: atenção (${hc.checks.queue.failed_jobs} falhados)`, impact: -10 });
+    else factors.push({ label: `Fila: ok (${hc.checks.queue.pending_jobs} pendentes)`, impact: 0 });
+  }
+
+  if (hc.checks?.storage) {
+    if (hc.checks.storage.status === 'error') factors.push({ label: "Storage: erro", impact: -20 });
+    else factors.push({ label: "Storage: ok", impact: 0 });
+  }
+
+  // Acquirers
+  const acquirers = hc.checks?.acquirers ?? [];
+  const critAcq = acquirers.filter(a => a.status === 'critical').length;
+  const warnAcq = acquirers.filter(a => a.status === 'warning').length;
+  if (critAcq > 0) factors.push({ label: `${critAcq} adquirente(s) crítico(s)`, impact: -(critAcq * 15) });
+  if (warnAcq > 0) factors.push({ label: `${warnAcq} adquirente(s) com atenção`, impact: -(warnAcq * 5) });
+
+  // Inactivity
   const minutesAgo = hc.checks?.lastTransaction?.minutes_ago;
   if (minutesAgo != null) {
     let inactivityImpact = 0;
     if (minutesAgo > 1440) inactivityImpact = -100;
-    else if (minutesAgo > 60) inactivityImpact = -70;
-    else if (minutesAgo > 30) inactivityImpact = -40;
-    else if (minutesAgo > 10) inactivityImpact = -20;
+    else if (minutesAgo > 60) inactivityImpact = -40;
+    else if (minutesAgo > 30) inactivityImpact = -20;
+    else if (minutesAgo > 10) inactivityImpact = -10;
     factors.push({ label: `Última transação: ${Math.round(minutesAgo)}min atrás`, impact: inactivityImpact });
   }
 
-  // Database latency (informational)
-  if (hc.checks?.database) {
-    factors.push({ label: `Database: ${hc.checks.database.status} (${hc.checks.database.latency_ms}ms)`, impact: 0 });
-  }
-
-  // Redis latency (informational)
-  if (hc.checks?.redis) {
-    factors.push({ label: `Redis: ${hc.checks.redis.status} (${hc.checks.redis.latency_ms}ms)`, impact: 0 });
-  }
-
-  // Error rate impact
-  const errorRate = totalEvents > 0 ? (errorsToday / totalEvents) * 100 : 0;
-  const errorImpact = Math.min(errorRate * 3, 30);
-  factors.push({ label: `Taxa de erro: ${errorRate.toFixed(1)}%`, impact: -errorImpact });
-
-  // Acquirer health
-  const lowAcquirers = acquirerStats.filter(a => a.successRate < 90).length;
-  const acqImpact = lowAcquirers * 15;
-  factors.push({ label: `Adquirentes com problemas: ${lowAcquirers}`, impact: -Math.min(acqImpact, 30) });
-
-  // Average latency impact
-  const acqsWithLatency = acquirerStats.filter(a => a.avgLatencyMs > 0);
-  const avgLatency = acqsWithLatency.length > 0
-    ? acqsWithLatency.reduce((sum, a) => sum + a.avgLatencyMs, 0) / acqsWithLatency.length
-    : 0;
-  const latencyImpact = avgLatency > 3000 ? 20 : avgLatency > 1500 ? 10 : avgLatency > 500 ? 5 : 0;
-  factors.push({ label: `Latência média: ${avgLatency > 0 ? `${Math.round(avgLatency)}ms` : 'N/A'}`, impact: -latencyImpact });
-
-  // No events penalty
-  if (totalEvents === 0) {
-    factors.push({ label: "Sem eventos recebidos", impact: -10 });
-  }
-
-  // If health check is DOWN or fetch failed, score = 0
-  const forceZero = (hc.isUp === false && hc.status === null) || hc.status === 'down';
   const score = forceZero
     ? 0
     : Math.round(Math.max(0, Math.min(100, 100 + factors.reduce((sum, f) => sum + f.impact, 0))));
@@ -102,6 +94,13 @@ export function SystemHealthBar() {
                 <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Saúde do Sistema</span>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); hc.recheckNow(); }}
+                  className="p-1 rounded hover:bg-accent transition-colors"
+                  title="Verificar agora"
+                >
+                  <RefreshCw className="h-3 w-3 text-muted-foreground" />
+                </button>
                 <span className="text-sm font-semibold font-mono" style={{ color }}>{score}</span>
                 <span className="text-[10px] text-muted-foreground">/100</span>
                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ color, backgroundColor: `${color}20` }}>{label}</span>
