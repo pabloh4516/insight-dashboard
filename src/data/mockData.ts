@@ -234,3 +234,46 @@ export const allEntries: AnyEntry[] = [
   ...requests, ...clientRequests, ...jobs, ...exceptions,
   ...logs, ...queries, ...mails, ...events, ...cacheEntries, ...commands,
 ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+// Sparkline data (last 12 hours) for each metric category
+export const sparklineData = {
+  requests: [32, 45, 28, 52, 38, 60, 42, 55, 35, 48, 40, 50],
+  clientRequests: [12, 18, 8, 22, 15, 20, 14, 25, 10, 18, 16, 20],
+  jobs: [20, 30, 15, 35, 25, 40, 22, 38, 18, 32, 28, 35],
+  exceptions: [1, 3, 0, 5, 2, 4, 1, 6, 2, 3, 1, 4],
+  queries: [120, 180, 95, 210, 150, 240, 130, 200, 110, 190, 160, 220],
+  logs: [40, 55, 30, 65, 45, 70, 38, 60, 35, 58, 42, 55],
+  mails: [3, 5, 2, 8, 4, 6, 3, 7, 2, 5, 4, 6],
+  events: [8, 12, 5, 15, 10, 18, 7, 14, 6, 12, 9, 15],
+  cache: [25, 35, 18, 40, 30, 45, 22, 38, 20, 34, 28, 40],
+  commands: [2, 4, 1, 5, 3, 6, 2, 4, 1, 5, 3, 5],
+};
+
+// Trend data (% change vs yesterday)
+export const trendData: Record<string, number> = {
+  requests: 12.5,
+  clientRequests: -3.2,
+  jobs: 8.1,
+  exceptions: 25.0,
+  queries: -5.4,
+  logs: 15.3,
+  mails: 0,
+  events: 6.7,
+  cache: -2.1,
+  commands: 10.0,
+};
+
+// Provider health data
+export interface ProviderStatus {
+  name: string;
+  status: 'online' | 'degraded' | 'offline';
+  latency: number | null;
+  lastCheck: string;
+  uptime: number;
+}
+
+export const providerHealthData: ProviderStatus[] = [
+  { name: 'BSPAY', status: 'online', latency: 245, lastCheck: ago(1), uptime: 99.8 },
+  { name: 'SuitPay', status: 'degraded', latency: 450, lastCheck: ago(2), uptime: 97.2 },
+  { name: 'EzzeBank', status: 'offline', latency: null, lastCheck: ago(15), uptime: 85.1 },
+];
