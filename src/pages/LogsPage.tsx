@@ -227,7 +227,7 @@ const LogsPage = () => {
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Filter panel */}
-        <div className="border-r border-border/50 p-3 overflow-y-auto bg-card/20">
+        <div className="border-r border-border/50 p-3 overflow-y-auto scrollbar-hidden bg-card/20">
           <LogsFilterPanel
             sections={filterSections}
             selected={filters}
@@ -237,7 +237,7 @@ const LogsPage = () => {
         </div>
 
         {/* Log table */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-hidden">
           <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-card/90 backdrop-blur-sm z-10">
               <tr className="border-b border-border text-[10px] font-display uppercase tracking-widest text-muted-foreground">
