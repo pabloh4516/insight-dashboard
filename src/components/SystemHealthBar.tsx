@@ -29,6 +29,14 @@ export function SystemHealthBar() {
   const acqImpact = lowAcquirers * 15;
   factors.push({ label: `Adquirentes com problemas: ${lowAcquirers}`, impact: -Math.min(acqImpact, 30) });
 
+  // Average latency impact
+  const acqsWithLatency = acquirerStats.filter(a => a.avgLatencyMs > 0);
+  const avgLatency = acqsWithLatency.length > 0
+    ? acqsWithLatency.reduce((sum, a) => sum + a.avgLatencyMs, 0) / acqsWithLatency.length
+    : 0;
+  const latencyImpact = avgLatency > 3000 ? 20 : avgLatency > 1500 ? 10 : avgLatency > 500 ? 5 : 0;
+  factors.push({ label: `Latência média: ${avgLatency > 0 ? `${Math.round(avgLatency)}ms` : 'N/A'}`, impact: -latencyImpact });
+
   // No events penalty
   if (totalEvents === 0) {
     factors.push({ label: "Sem eventos recebidos", impact: -10 });
@@ -46,7 +54,7 @@ export function SystemHealthBar() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Saúde do Gateway</span>
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Saúde do Sistema</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold font-mono" style={{ color }}>{score}</span>

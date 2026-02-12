@@ -8,11 +8,6 @@ function getMetaField(event: DbEvent, field: string): unknown {
   return meta?.[field] ?? null;
 }
 
-function getAmount(event: DbEvent): number {
-  const amount = getMetaField(event, 'amount');
-  return typeof amount === 'number' ? amount : 0;
-}
-
 function getAcquirer(event: DbEvent): string | null {
   const acq = getMetaField(event, 'acquirer');
   return typeof acq === 'string' ? acq : null;
@@ -20,10 +15,8 @@ function getAcquirer(event: DbEvent): string | null {
 
 export interface HourlyDataPoint {
   hour: string;
-  payments: number;
-  withdrawals: number;
-  paymentAmount: number;
-  withdrawalAmount: number;
+  requests: number;
+  errors: number;
 }
 
 export interface AcquirerStat {
@@ -35,15 +28,13 @@ export interface AcquirerStat {
 }
 
 export interface GatewayStats {
-  paymentsToday: number;
-  withdrawalsToday: number;
-  testsToday: number;
+  requestsToday: number;
+  jobsToday: number;
+  jobSuccessRate: number;
+  securityAlertsToday: number;
   errorsToday: number;
-  totalReceivedToday: number;
-  totalWithdrawnToday: number;
   totalEvents: number;
   hourlyData: HourlyDataPoint[];
-  cumulativeData: { hour: string; total: number }[];
   acquirerStats: AcquirerStat[];
   recentErrors: DbEvent[];
   recentEvents: DbEvent[];
@@ -74,43 +65,25 @@ export function useGatewayStats(period: PeriodKey = '24h'): GatewayStats {
     const todayStart = startOfDay(new Date()).toISOString();
     const todayEvents = events.filter(e => e.created_at >= todayStart);
 
-    const paymentsToday = todayEvents.filter(e => e.type === 'payment').length;
-    const withdrawalsToday = todayEvents.filter(e => e.type === 'withdrawal').length;
-    const testsToday = todayEvents.filter(e => e.type === 'test').length;
+    const requestsToday = todayEvents.filter(e => e.type === 'request').length;
+    const jobsToday = todayEvents.filter(e => e.type === 'job').length;
+    const jobsSuccessToday = todayEvents.filter(e => e.type === 'job' && e.status === 'success').length;
+    const jobSuccessRate = jobsToday > 0 ? (jobsSuccessToday / jobsToday) * 100 : 0;
+    const securityAlertsToday = todayEvents.filter(e => e.type === 'security').length;
     const errorsToday = todayEvents.filter(e => e.status === 'error').length;
 
-    const totalReceivedToday = todayEvents
-      .filter(e => e.type === 'payment')
-      .reduce((sum, e) => sum + getAmount(e), 0);
-
-    const totalWithdrawnToday = todayEvents
-      .filter(e => e.type === 'withdrawal')
-      .reduce((sum, e) => sum + getAmount(e), 0);
-
-    // Hourly data
+    // Hourly data: requests and errors
     const hourMap = new Map<string, HourlyDataPoint>();
     for (const e of events) {
       const hourKey = format(startOfHour(new Date(e.created_at)), 'HH:mm');
       if (!hourMap.has(hourKey)) {
-        hourMap.set(hourKey, { hour: hourKey, payments: 0, withdrawals: 0, paymentAmount: 0, withdrawalAmount: 0 });
+        hourMap.set(hourKey, { hour: hourKey, requests: 0, errors: 0 });
       }
       const point = hourMap.get(hourKey)!;
-      if (e.type === 'payment') {
-        point.payments++;
-        point.paymentAmount += getAmount(e);
-      } else if (e.type === 'withdrawal') {
-        point.withdrawals++;
-        point.withdrawalAmount += getAmount(e);
-      }
+      if (e.type === 'request') point.requests++;
+      if (e.status === 'error') point.errors++;
     }
     const hourlyData = Array.from(hourMap.values()).sort((a, b) => a.hour.localeCompare(b.hour));
-
-    // Cumulative
-    let cumTotal = 0;
-    const cumulativeData = hourlyData.map(h => {
-      cumTotal += h.paymentAmount;
-      return { hour: h.hour, total: cumTotal };
-    });
 
     // Acquirer stats
     const acqMap = new Map<string, { count: number; success: number; totalAmount: number; totalLatency: number; latencyCount: number }>();
@@ -121,7 +94,8 @@ export function useGatewayStats(period: PeriodKey = '24h'): GatewayStats {
       const stat = acqMap.get(acq)!;
       stat.count++;
       if (e.status === 'success') stat.success++;
-      stat.totalAmount += getAmount(e);
+      const amount = getMetaField(e, 'amount');
+      if (typeof amount === 'number') stat.totalAmount += amount;
       const latency = getMetaField(e, 'response_time_ms');
       if (typeof latency === 'number') {
         stat.totalLatency += latency;
@@ -136,19 +110,16 @@ export function useGatewayStats(period: PeriodKey = '24h'): GatewayStats {
       avgLatencyMs: s.latencyCount > 0 ? s.totalLatency / s.latencyCount : 0,
     }));
 
-    // Recent errors
     const recentErrors = events.filter(e => e.status === 'error').slice(0, 5);
 
     return {
-      paymentsToday,
-      withdrawalsToday,
-      testsToday,
+      requestsToday,
+      jobsToday,
+      jobSuccessRate,
+      securityAlertsToday,
       errorsToday,
-      totalReceivedToday,
-      totalWithdrawnToday,
       totalEvents: events.length,
       hourlyData,
-      cumulativeData,
       acquirerStats,
       recentErrors,
       recentEvents: events.slice(0, 10),
