@@ -102,7 +102,7 @@ export const useEventCounts = (projectId: string | null) => {
     queryKey: ['event-counts', projectId],
     queryFn: async () => {
       if (!projectId) return {};
-      const types = ['request', 'error', 'job', 'email', 'webhook_in', 'webhook_out', 'login', 'payment', 'withdrawal', 'test'];
+      const types = ['request', 'exception', 'query', 'job', 'email', 'cache', 'command', 'error', 'webhook_in', 'webhook_out', 'login', 'payment', 'withdrawal', 'test'];
       const counts: Record<string, number> = {};
 
       for (const t of types) {

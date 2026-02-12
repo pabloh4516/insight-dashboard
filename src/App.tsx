@@ -7,6 +7,13 @@ import { TelescopeLayout } from "@/components/TelescopeLayout";
 import DashboardOverview from "./pages/DashboardOverview";
 import LogsPage from "./pages/LogsPage";
 import EventsPage from "./pages/EventsPage";
+import ExceptionsPage from "./pages/ExceptionsPage";
+import QueriesPage from "./pages/QueriesPage";
+import JobsPage from "./pages/JobsPage";
+import MailPage from "./pages/MailPage";
+import CachePage from "./pages/CachePage";
+import CommandsPage from "./pages/CommandsPage";
+import RequestsPage from "./pages/RequestsPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
@@ -37,6 +44,13 @@ const AppRoutes = () => {
         <Routes>
           <Route path="/" element={<DashboardOverview />} />
           <Route path="/events" element={<EventsPage />} />
+          <Route path="/requests" element={<RequestsPage />} />
+          <Route path="/exceptions" element={<ExceptionsPage />} />
+          <Route path="/queries" element={<QueriesPage />} />
+          <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/mails" element={<MailPage />} />
+          <Route path="/cache" element={<CachePage />} />
+          <Route path="/commands" element={<CommandsPage />} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/auth" element={<Navigate to="/" replace />} />
