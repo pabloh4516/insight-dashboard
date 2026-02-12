@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useProject } from '@/contexts/ProjectContext';
+import { startOfHour, addHours } from 'date-fns';
 
 export interface HealthCheckEntry {
   timestamp: string;
@@ -30,6 +31,35 @@ export interface HealthCheckState {
 
 const POLL_INTERVAL_MS = 2 * 60 * 1000;
 const MAX_HISTORY = 30;
+
+function getHourBounds() {
+  const now = new Date();
+  const start = startOfHour(now);
+  const end = addHours(start, 1);
+  return { start, end };
+}
+
+function slotIndex(timestamp: string, hourStart: Date): number {
+  const diff = new Date(timestamp).getTime() - hourStart.getTime();
+  return Math.floor(diff / (2 * 60 * 1000));
+}
+
+function deduplicateBySlot(entries: HealthCheckEntry[], hourStart: Date): HealthCheckEntry[] {
+  const slotMap = new Map<number, HealthCheckEntry>();
+  for (const entry of entries) {
+    const slot = slotIndex(entry.timestamp, hourStart);
+    if (slot >= 0 && slot < 30) {
+      slotMap.set(slot, entry); // keep latest (entries are ordered asc)
+    }
+  }
+  // Return in slot order
+  const result: HealthCheckEntry[] = [];
+  for (let i = 0; i < 30; i++) {
+    const e = slotMap.get(i);
+    if (e) result.push(e);
+  }
+  return result;
+}
 
 function parseChecks(raw: Record<string, unknown> | null): HealthChecks | null {
   if (!raw) return null;
@@ -108,12 +138,15 @@ export function useHealthCheck() {
     if (!projectId) return;
 
     (async () => {
+      const { start } = getHourBounds();
+
       const { data } = await supabase
         .from('health_check_log' as any)
         .select('checked_at, is_up, status')
         .eq('project_id', projectId)
+        .gte('checked_at', start.toISOString())
         .order('checked_at', { ascending: true })
-        .limit(MAX_HISTORY);
+        .limit(100);
 
       if (data && data.length > 0) {
         const entries: HealthCheckEntry[] = (data as any[]).map(row => ({
@@ -121,13 +154,17 @@ export function useHealthCheck() {
           status: (['operational', 'degraded', 'down'].includes(row.status) ? row.status : null) as HealthCheckEntry['status'],
           isUp: row.is_up,
         }));
-        setState(prev => ({ ...prev, history: entries }));
+        setState(prev => ({ ...prev, history: deduplicateBySlot(entries, start) }));
+      } else {
+        setState(prev => ({ ...prev, history: [] }));
       }
     })();
   }, [projectId]);
 
   const check = useCallback(async () => {
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const { start } = getHourBounds();
 
     try {
       const { data, error } = await supabase.functions.invoke('health-check', {
@@ -135,11 +172,11 @@ export function useHealthCheck() {
       });
 
       if (error) {
-        const entry: HealthCheckEntry = { timestamp: now, status: null, isUp: false };
-        setState(prev => ({
-          isUp: false, status: null, statusCode: null, lastCheckedAt: now, error: error.message, checks: null,
-          history: [...prev.history, entry].slice(-MAX_HISTORY),
-        }));
+        const entry: HealthCheckEntry = { timestamp: nowIso, status: null, isUp: false };
+        setState(prev => {
+          const newHistory = deduplicateBySlot([...prev.history, entry], start);
+          return { isUp: false, status: null, statusCode: null, lastCheckedAt: nowIso, error: error.message, checks: null, history: newHistory };
+        });
         handleStatusChange(null);
         return;
       }
@@ -148,19 +185,21 @@ export function useHealthCheck() {
       const status = (['operational', 'degraded', 'down'].includes(data?.status) ? data.status : null) as HealthCheckState['status'];
       const statusCode = data?.statusCode ?? null;
       const checks = parseChecks(data?.checks ?? null);
-      const entry: HealthCheckEntry = { timestamp: now, status, isUp };
+      const entry: HealthCheckEntry = { timestamp: nowIso, status, isUp };
 
-      setState(prev => ({
-        isUp, status, statusCode, lastCheckedAt: now, error: null, checks,
-        history: [...prev.history, entry].slice(-MAX_HISTORY),
-      }));
+      setState(prev => {
+        // If we crossed an hour boundary, reset history
+        const prevEntries = prev.history.length > 0 && slotIndex(prev.history[0].timestamp, start) < 0 ? [] : prev.history;
+        const newHistory = deduplicateBySlot([...prevEntries, entry], start);
+        return { isUp, status, statusCode, lastCheckedAt: nowIso, error: null, checks, history: newHistory };
+      });
       handleStatusChange(status);
     } catch (err) {
-      const entry: HealthCheckEntry = { timestamp: now, status: null, isUp: false };
-      setState(prev => ({
-        isUp: false, status: null, statusCode: null, lastCheckedAt: now, error: String(err), checks: null,
-        history: [...prev.history, entry].slice(-MAX_HISTORY),
-      }));
+      const entry: HealthCheckEntry = { timestamp: nowIso, status: null, isUp: false };
+      setState(prev => {
+        const newHistory = deduplicateBySlot([...prev.history, entry], start);
+        return { isUp: false, status: null, statusCode: null, lastCheckedAt: nowIso, error: String(err), checks: null, history: newHistory };
+      });
       handleStatusChange(null);
     }
   }, [projectId]);
