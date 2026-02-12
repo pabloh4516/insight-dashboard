@@ -1,6 +1,6 @@
 import {
   Zap, FileText, LayoutDashboard, LogOut, FolderOpen, ChevronDown,
-  Globe, AlertTriangle, Database, Cog, Mail, HardDrive, Terminal
+  Globe, AlertTriangle, Database, Cog, Mail, HardDrive, Terminal, Shield
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +24,7 @@ export function TelescopeSidebar() {
     { title: "Mail", url: "/mails", icon: Mail, count: counts?.email ?? null },
     { title: "Cache", url: "/cache", icon: HardDrive, count: counts?.cache ?? null },
     { title: "Commands", url: "/commands", icon: Terminal, count: counts?.command ?? null },
+    { title: "Segurança", url: "/security", icon: Shield, count: counts?.security ?? null },
     { title: "Registros", url: "/logs", icon: FileText, count: null },
     { title: "Projetos", url: "/projects", icon: FolderOpen, count: null },
   ];
