@@ -1,108 +1,112 @@
-# Pagina de Configuracao de Notificacoes por Email
 
-## O que sera feito
+# Proteção da Chamada ao Health Check com Token Secreto
 
-Criar uma nova pagina "Notificacoes" acessivel pela sidebar onde o usuario pode gerenciar os emails que recebem alertas quando o gateway cai ou volta ao normal.
+## Visão Geral
 
-## Arquitetura
+Adicionar um token de autenticação na chamada ao endpoint `/api/v1/health` do gateway. O token será armazenado como variável de ambiente na Edge Function e incluído no header `Authorization` durante a requisição.
 
-### 1. Nova tabela `notification_emails`
+---
 
-Armazenar os emails de notificacao no banco de dados (em vez de depender apenas dos secrets fixos):
+## Implementação
 
-```text
-notification_emails
-- id: uuid (PK, default gen_random_uuid())
-- project_id: uuid (NOT NULL, referencia ao projeto)
-- email: text (NOT NULL)
-- enabled: boolean (default true)
-- created_at: timestamptz (default now())
+### 1. Adicionar Variável de Ambiente na Edge Function
+
+**Arquivo:** `supabase/config.toml`
+
+Não é necessário editar o arquivo `config.toml` para declarar a variável - o Supabase permite que qualquer variável de ambiente seja definida. A configuração será feita através do Cloud UI.
+
+**O que o usuário fará:**
+- Abrir o Cloud View do Lovable
+- Navegar até a seção de Edge Functions > Environment Variables
+- Adicionar a variável: `GATEWAY_HEALTH_TOKEN=<token-fornecido-pelo-usuario>`
+
+### 2. Atualizar Edge Function `health-check`
+
+**Arquivo:** `supabase/functions/health-check/index.ts`
+
+**Mudanças:**
+
+a) Adicionar leitura da variável de ambiente no início da função:
+```
+const token = Deno.env.get('GATEWAY_HEALTH_TOKEN');
 ```
 
-RLS: usuarios so veem/editam emails dos seus proprios projetos (via join com `projects.user_id = auth.uid()`).
-
-### 2. Nova pagina `NotificationsPage.tsx`
-
-- Listar emails cadastrados com toggle de ativo/inativo
-- Formulario para adicionar novo email (com validacao)
-- Botao para remover email
-- Botao para enviar email de teste
-
-### 3. Atualizar Edge Function `notify-status-change`
-
-- Em vez de ler apenas o secret `NOTIFICATION_EMAIL_TO`, buscar todos os emails ativos da tabela `notification_emails` para o projeto
-- Manter fallback para o secret caso a tabela esteja vazia (compatibilidade)
-- Enviar email para todos os destinatarios ativos
-
-### 4. Atualizar Sidebar
-
-- Adicionar item "Notificacoes" na secao de navegacao com icone de sino (Bell)
-
-### 5. Atualizar Rotas
-
-- Adicionar rota `/notifications` no `App.tsx`
-
-## Detalhes Tecnicos
-
-### Tabela SQL
-
-```sql
-CREATE TABLE public.notification_emails (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id uuid NOT NULL,
-  email text NOT NULL,
-  enabled boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.notification_emails ENABLE ROW LEVEL SECURITY;
-
--- Politicas RLS
-CREATE POLICY "Users can view own notification emails"
-  ON public.notification_emails FOR SELECT
-  USING (EXISTS (SELECT 1 FROM projects WHERE projects.id::text = notification_emails.project_id::text AND projects.user_id = auth.uid()));
-
-CREATE POLICY "Users can insert own notification emails"
-  ON public.notification_emails FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM projects WHERE projects.id::text = notification_emails.project_id::text AND projects.user_id = auth.uid()));
-
-CREATE POLICY "Users can update own notification emails"
-  ON public.notification_emails FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM projects WHERE projects.id::text = notification_emails.project_id::text AND projects.user_id = auth.uid()));
-
-CREATE POLICY "Users can delete own notification emails"
-  ON public.notification_emails FOR DELETE
-  USING (EXISTS (SELECT 1 FROM projects WHERE projects.id::text = notification_emails.project_id::text AND projects.user_id = auth.uid()));
+b) Modificar o `fetch()` para incluir o header `Authorization`:
+```typescript
+const response = await fetch(HEALTH_URL, {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json',
+  },
+  signal: controller.signal,
+});
 ```
 
-### NotificationsPage.tsx
+c) Adicionar validação de erro caso o token não esteja configurado:
+```typescript
+if (!token) {
+  return new Response(JSON.stringify({
+    isUp: false,
+    status: null,
+    statusCode: null,
+    checks: null,
+    error: 'GATEWAY_HEALTH_TOKEN not configured',
+  }), {
+    status: 500,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+```
 
-- Usa `useProject()` para obter o `selectedProject.id`
-- CRUD direto via Supabase client na tabela `notification_emails`
-- Validacao de email com regex simples
-- Toggle de ativo/inativo via Switch component
-- Botao "Enviar teste" que chama a edge function `notify-status-change` com status de teste
+---
 
-### Edge Function `notify-status-change`
+## Detalhes Técnicos
 
-- Recebe `project_id` no body junto com `status`, `statusCode`, `checkedAt`
-- Busca emails ativos: `SELECT email FROM notification_emails WHERE project_id = $1 AND enabled = true`
-- Se nenhum email na tabela, usa fallback do secret `NOTIFICATION_EMAIL_TO`
-- Envia para todos os emails encontrados
+### Segurança
 
-### Sidebar
+- ✅ O token fica **apenas na Edge Function (backend)**
+- ✅ O frontend continua chamando a Edge Function normalmente via `supabase.functions.invoke('health-check')`
+- ✅ A Edge Function adiciona o token na chamada ao gateway
+- ✅ Nenhum token é exposto no JavaScript do navegador
 
-- Adicionar "Notificacoes" com icone `Bell` na secao fixa (junto com "Projetos"), abaixo dos grupos colapsaveis
+### Fluxo
 
-### Arquivos a criar
+```
+Frontend (browser)
+  └─> supabase.functions.invoke('health-check')
+        └─> Edge Function (backend)
+              └─> fetch('https://api.sellxpay.com.br/api/v1/health', {
+                    headers: { Authorization: 'Bearer TOKEN' }
+                  })
+              └─> Gateway responde
+        └─> retorna resposta ao frontend
+```
 
-- `src/pages/NotificationsPage.tsx`
+### Tratamento de Erros
 
-### Arquivos a modificar
+A Edge Function verificará se `GATEWAY_HEALTH_TOKEN` está definido. Se não estiver:
+- Retorna status HTTP 500
+- Inclui mensagem de erro: "GATEWAY_HEALTH_TOKEN not configured"
+- Mantém a estrutura da resposta igual (isUp: false, status: null, etc.)
 
-- `supabase/functions/notify-status-change/index.ts` - buscar emails do banco
-- `src/components/TelescopeSidebar.tsx` - adicionar link
-- `src/App.tsx` - adicionar rota
-- Migration SQL para criar a tabela
+---
 
-Deve ter tambem as configurações do resend OK
+## Arquivos a Modificar
+
+- `supabase/functions/health-check/index.ts` - adicionar token no header e validação
+
+## Arquivos que NÃO precisam ser editados
+
+- `supabase/config.toml` - variáveis de ambiente são configuradas via UI, não via arquivo
+- Frontend (`src/hooks/useHealthCheck.ts`, `src/pages/DashboardOverview.tsx`, etc.) - nenhuma mudança necessária
+
+---
+
+## Próximos Passos do Usuário
+
+1. Após a implementação, o usuário abrirá o Cloud View
+2. Navegar até Settings > Edge Functions > Environment Variables
+3. Adicionar: `GATEWAY_HEALTH_TOKEN=<seu-token-aqui>`
+4. Salvar as mudanças
+5. Testar acessando o dashboard e verificar se o health check continua funcionando
