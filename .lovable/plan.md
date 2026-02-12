@@ -1,56 +1,88 @@
 
 
-# Pagina de Logs ao Vivo (estilo Vercel)
+# Redesign Visual — Estilo Profissional
 
-Vou redesenhar a pagina de Registros para funcionar como a tela de logs da Vercel, com visualizacao ao vivo, busca, filtros na lateral e linhas de log aparecendo em tempo real.
+Trocar o visual "videogame cyberpunk" por um estilo limpo e profissional, inspirado em ferramentas como Vercel, Linear e Datadog.
 
 ## O que muda
 
-### Layout da pagina
-- Barra superior com campo de busca, botao "Ao Vivo" (verde pulsando) e periodo
-- Painel de filtros na lateral esquerda (colapsavel) com checkboxes: Nivel (Alerta, Erro, Fatal), Tipo, Host, Rota, Status
-- Area principal com tabela de logs estilo terminal
+### Cores e Tipografia
+- Remover fonte Orbitron (display futurista) — usar apenas JetBrains Mono para dados e Inter/system-ui para interface
+- Trocar cores neon brilhantes por tons mais suaves e profissionais
+- Remover todos os efeitos de glow (text-shadow, box-shadow neon)
+- Remover animacoes de scan-line, glitch e border-glow
 
-### Tabela de logs (estilo Vercel)
-- Colunas: Horario (com milissegundos), Metodo, Status (badge colorido), Host, Rota, Mensagens
-- Linhas com fundo amarelo/vermelho para warnings/errors (como na imagem)
-- Monospace, compacta, sem bordas pesadas
-- Novos logs aparecem no topo com animacao de fade-in
-- Scroll automatico quando "Ao Vivo" esta ativo
+### Paleta nova
+- Fundo: cinza escuro neutro (sem tom azulado exagerado)
+- Texto: branco/cinza sem text-shadow
+- Sucesso: verde suave (#22c55e)
+- Erro: vermelho suave (#ef4444)
+- Aviso: amarelo/amber (#f59e0b)
+- Info: azul (#3b82f6)
+- Destaques: sem glow, apenas cor solida ou badge com fundo sutil
 
-### Integracao com dados ao vivo
-- Usa o RealtimeContext existente para receber dados em tempo real
-- Combina logs estaticos + logs que chegam ao vivo
-- Filtra por nivel, busca por texto na mensagem/rota
-- Botao "Ao Vivo" na propria pagina (independente do da sidebar)
+### Componentes afetados
+- Sidebar: remover "TELESCOPE" em Orbitron, usar texto normal, remover "Sistema Ativo" com ping neon
+- StatusCard: remover glow e animacao de borda, usar cards simples com borda sutil
+- PageHeader: remover gradiente neon na linha divisoria, usar linha cinza simples
+- DataTable: manter funcional, ajustar cores dos badges
+- LogsPage: manter layout estilo Vercel mas com cores profissionais
+- LiveNotification: remover glow verde, usar toast simples
+- Todas as paginas: trocar classes text-neon-* por cores normais do Tailwind
 
-### Mini timeline no topo
-- Barra de atividade mostrando densidade de logs nos ultimos 30 minutos (como na imagem da Vercel)
+### Grid de fundo
+- Remover grid-bg (linhas de circuito) do layout principal
 
 ---
 
 ## Detalhes tecnicos
 
-### Arquivo modificado: `src/pages/LogsPage.tsx`
-Reescrever completamente com:
-- Estado local para busca, filtros de nivel, modo ao vivo
-- `useRef` para scroll automatico
-- `useMemo` para combinar logs estaticos + `liveEntries` filtrados por tipo "log" e outros tipos relevantes (requests, exceptions)
-- Renderizacao de cada linha como row estilo terminal
+### `src/index.css`
+- Atualizar variaveis CSS: cores mais neutras, remover variaveis neon
+- Remover classes utilitarias: glow-cyan, glow-green, glow-magenta, glow-red, text-neon-*, scan-line, grid-bg, circuit-line
+- Remover keyframes: scanline, glitch, pulse-neon, border-glow
+- Trocar font-display de Orbitron para Inter/system-ui
+- Importar Inter do Google Fonts no lugar de Orbitron
 
-### Arquivo modificado: `src/data/mockData.ts`
-- Adicionar campo `host` nos logs e requests mock (ex: "pay.checkout.store", "api.gateway.com")
-- Adicionar mais logs mock para volume maior
+### `tailwind.config.ts`
+- Remover fontFamily display (Orbitron)
+- Remover cores neon do objeto colors
+- Remover keyframes pulse-neon e border-glow
+- Atualizar cores semanticas (sucesso, erro, aviso, info)
 
-### Arquivo modificado: `src/hooks/useRealtimeData.ts`
-- Gerar logs com hosts e rotas mais realistas para o modo ao vivo
+### `src/components/StatusCard.tsx`
+- Remover mapa de glow, usar cores com opacidade de fundo (bg-green-500/10 text-green-500)
+- Remover animacao border-glow
+- Remover font-display, usar font-semibold normal
 
-### Novo componente: `src/components/LogsFilterPanel.tsx`
-- Painel lateral com checkboxes para filtrar por nivel, host, rota
-- Contadores ao lado de cada filtro (como na imagem: Warning 135, Error 4)
-- Botao "Resetar" para limpar filtros
+### `src/components/PageHeader.tsx`
+- Trocar text-neon-cyan por text-primary (azul neutro)
+- Remover gradiente neon na linha divisoria, usar bg-border simples
+- Remover font-display
 
-### Novo componente: `src/components/ActivityBar.tsx`
-- Mini grafico de barras mostrando densidade de atividade nos ultimos 30 minutos
-- Similar a barra de timeline no topo da imagem da Vercel
+### `src/components/TelescopeSidebar.tsx`
+- Titulo: "Telescope" em font-semibold normal ao inves de Orbitron
+- Remover ping neon verde do "Sistema Ativo"
+- Simplificar botao Ao Vivo com cores normais
+- Trocar todas as referencias neon por cores padrao
+
+### `src/components/LiveNotification.tsx`
+- Remover glow-green, usar borda verde sutil
+
+### Todas as paginas (Requests, Jobs, Exceptions, etc.)
+- Trocar text-neon-* por cores Tailwind normais (text-green-500, text-red-500, etc.)
+- Remover font-display de labels e badges
+- Manter a estrutura e funcionalidade intactas
+
+### `src/pages/LogsPage.tsx`
+- Manter layout estilo Vercel
+- Trocar cores neon por cores profissionais
+- Manter animacao de fade-in para novos logs
+
+### `src/components/ActivityBar.tsx` e `src/components/LogsFilterPanel.tsx`
+- Atualizar cores de neon para tons profissionais
+
+### `src/pages/DashboardOverview.tsx`
+- Remover glow-* dos cards de metricas
+- Atualizar cores do grafico para tons profissionais
 
