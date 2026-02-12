@@ -14,7 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      events: {
+        Row: {
+          created_at: string
+          id: string
+          meta: Json | null
+          project_id: string
+          status: string
+          summary: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          project_id: string
+          status: string
+          summary?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          project_id?: string
+          status?: string
+          summary?: string | null
+          type?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          api_token: string
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          api_token: string
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          api_token?: string
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
