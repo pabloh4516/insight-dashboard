@@ -1,229 +1,108 @@
-# Integracao Completa com Health Check do Gateway
+# Pagina de Configuracao de Notificacoes por Email
 
-## Visao Geral
+## O que sera feito
 
-Reescrever o sistema de monitoramento para consumir todos os dados do endpoint `/api/v1/health`, adicionar painel de componentes, timeline de disponibilidade, detalhes de adquirentes e notificacoes no browser.
+Criar uma nova pagina "Notificacoes" acessivel pela sidebar onde o usuario pode gerenciar os emails que recebem alertas quando o gateway cai ou volta ao normal.
 
----
+## Arquitetura
 
-## 1. Reescrever o Hook `useHealthCheck`
+### 1. Nova tabela `notification_emails`
 
-**Arquivo:** `src/hooks/useHealthCheck.ts`
-
-Mudancas principais:
-
-- Expandir o tipo `HealthChecks` para incluir os novos campos: `php`, `storage`, `database.connections`, `database.driver`, `acquirers[].transactions_24h`, `acquirers[].success_rate`, `acquirers[].last_transaction_at`, `last_transaction.last_at`, `last_transaction.status`
-- Manter historico das ultimas 30 verificacoes em um array `history` no state
-- Cada entrada do historico: `{ timestamp, status, isUp }`
-- Adicionar logica de notificacao no browser: quando status mudar de "operational" para "down"/"degraded"/null, disparar `Notification API` e tocar som de alerta
-- Manter a logica existente de disparar email via `notify-status-change`
-
-Novo tipo exportado:
+Armazenar os emails de notificacao no banco de dados (em vez de depender apenas dos secrets fixos):
 
 ```text
-HealthCheckEntry {
-  timestamp: string
-  status: "operational" | "degraded" | "down" | null
-  isUp: boolean
-}
-
-HealthChecks {
-  php: { status, version, memory_usage_mb, memory_limit } | null
-  database: { status, latency_ms, driver, connections: { active, max, percent } } | null
-  redis: { status, latency_ms } | null
-  queue: { status, pending_jobs, failed_jobs } | null
-  storage: { status, writable } | null
-  lastTransaction: { status, last_at, minutes_ago } | null
-  acquirers: Array<{ name, slug, status, transactions_24h, success_rate, failure_rate, last_transaction_at }>
-}
-
-HealthCheckState {
-  ...campos existentes...
-  history: HealthCheckEntry[]  // ultimas 30 verificacoes
-}
+notification_emails
+- id: uuid (PK, default gen_random_uuid())
+- project_id: uuid (NOT NULL, referencia ao projeto)
+- email: text (NOT NULL)
+- enabled: boolean (default true)
+- created_at: timestamptz (default now())
 ```
 
----
+RLS: usuarios so veem/editam emails dos seus proprios projetos (via join com `projects.user_id = auth.uid()`).
 
-## 2. Atualizar Edge Function `health-check`
+### 2. Nova pagina `NotificationsPage.tsx`
 
-**Arquivo:** `supabase/functions/health-check/index.ts`
+- Listar emails cadastrados com toggle de ativo/inativo
+- Formulario para adicionar novo email (com validacao)
+- Botao para remover email
+- Botao para enviar email de teste
 
-- Parsear e retornar todos os campos novos do JSON (php, storage, database.connections, acquirers completo, last_transaction completo)
-- Manter a estrutura atual mas passar os dados adicionais
+### 3. Atualizar Edge Function `notify-status-change`
 
----
+- Em vez de ler apenas o secret `NOTIFICATION_EMAIL_TO`, buscar todos os emails ativos da tabela `notification_emails` para o projeto
+- Manter fallback para o secret caso a tabela esteja vazia (compatibilidade)
+- Enviar email para todos os destinatarios ativos
 
-## 3. Atualizar Score do Sistema
+### 4. Atualizar Sidebar
 
-**Arquivo:** `src/components/SystemHealthBar.tsx`
+- Adicionar item "Notificacoes" na secao de navegacao com icone de sino (Bell)
 
-Substituir a logica de score atual pela formula detalhada:
+### 5. Atualizar Rotas
 
-```text
-Score base = 100
-
-// Prioridade maxima
-fetch falhou / status "down" → score = 0
-
-// Status degraded
-status === "degraded" → -30
-
-// Componentes individuais
-database.status === "error" → -40
-database.status === "slow" → -10
-redis.status === "error" → -30
-redis.status === "slow" → -5
-queue.status === "critical" → -25
-queue.status === "warning" → -10
-storage.status === "error" → -20
-
-// Adquirentes
-Cada adquirente "critical" → -15
-Cada adquirente "warning" → -5
-
-// Inatividade
-minutes_ago > 1440 → -100
-minutes_ago > 60 → -40
-minutes_ago > 30 → -20
-minutes_ago > 10 → -10
-
-Score minimo = 0
-```
-
-Atualizar o tooltip com todos os fatores individuais listados.
-
----
-
-## 4. Atualizar Banner de Status
-
-**Arquivo:** `src/components/StatusBanner.tsx`
-
-Manter a mesma prioridade de renderizacao ja implementada, mas atualizar as mensagens:
-
-- Fetch falhou: "Gateway offline - sem resposta ha X minutos"
-- status "down": "Gateway com falha critica - [listar componentes com problema]"
-- status "degraded": "Gateway degradado - [listar componentes com problema]"
-- Inatividade > 30min: "Nenhuma transacao nos ultimos X minutos"
-- Tudo ok: "Sistema operacional"
-
----
-
-## 5. Criar Painel de Componentes
-
-**Novo arquivo:** `src/components/ComponentHealthPanel.tsx`
-
-Card com grid de componentes, cada um com indicador colorido:
-
-
-| Componente  | Verde | Amarelo | Vermelho |
-| ----------- | ----- | ------- | -------- |
-| PHP         | ok    | -       | -        |
-| Database    | ok    | slow    | error    |
-| Redis       | ok    | slow    | error    |
-| Fila        | ok    | warning | critical |
-| Storage     | ok    | -       | error    |
-| Adquirentes | ok    | warning | critical |
-
-
-Mostrar informacoes extras ao lado de cada componente:
-
-- Database: latencia em ms, conexoes ativas/max
-- Redis: latencia em ms
-- Fila: jobs pendentes e falhados
-- PHP: versao e memoria
-
----
-
-## 6. Criar Timeline de Disponibilidade
-
-**Novo arquivo:** `src/components/UptimeTimeline.tsx`
-
-Barra horizontal com 30 blocos (1 bloco = 1 check de 2 min = 1 hora total).
-Cada bloco colorido conforme o resultado daquele check:
-
-- Verde: operational
-- Amarelo: degraded
-- Vermelho: down ou fetch falhou
-- Cinza: sem dado ainda
-
-Tooltip em cada bloco mostrando horario e status.
-
----
-
-## 7. Criar Tabela de Adquirentes Detalhada
-
-**Novo arquivo:** `src/components/AcquirerHealthTable.tsx`
-
-Tabela com colunas:
-
-- Nome (com slug em texto menor)
-- Status (badge colorido: verde/amarelo/vermelho)
-- Transacoes 24h
-- Taxa de sucesso %
-- Taxa de falha %
-- Ultima transacao (tempo relativo usando `formatDistanceToNow`)
-
-Dados vindos de `useHealthCheck().checks.acquirers`.
-
----
-
-## 8. Notificacoes no Browser
-
-**Dentro de** `src/hooks/useHealthCheck.ts`
-
-Quando o status mudar de "operational" para qualquer outro estado:
-
-- Pedir permissao via `Notification.requestPermission()` (uma vez)
-- Disparar `new Notification("Gateway Alert", { body: "..." })`
-- Tocar som de alerta usando `new Audio()` com um beep sintetizado via Web Audio API
-- Manter a chamada existente ao `notify-status-change` para email
-
----
-
-## 9. Integrar no Dashboard
-
-**Arquivo:** `src/pages/DashboardOverview.tsx`
-
-Adicionar os novos componentes abaixo do banner de status:
-
-1. `UptimeTimeline` - timeline de disponibilidade (logo abaixo do banner)
-2. `ComponentHealthPanel` - painel de componentes (na area do hero, ao lado ou abaixo da SystemHealthBar)
-3. `AcquirerHealthTable` - substituir ou complementar o `ProviderHealth` existente com dados do health check
-
----
+- Adicionar rota `/notifications` no `App.tsx`
 
 ## Detalhes Tecnicos
 
+### Tabela SQL
+
+```sql
+CREATE TABLE public.notification_emails (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL,
+  email text NOT NULL,
+  enabled boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.notification_emails ENABLE ROW LEVEL SECURITY;
+
+-- Politicas RLS
+CREATE POLICY "Users can view own notification emails"
+  ON public.notification_emails FOR SELECT
+  USING (EXISTS (SELECT 1 FROM projects WHERE projects.id::text = notification_emails.project_id::text AND projects.user_id = auth.uid()));
+
+CREATE POLICY "Users can insert own notification emails"
+  ON public.notification_emails FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM projects WHERE projects.id::text = notification_emails.project_id::text AND projects.user_id = auth.uid()));
+
+CREATE POLICY "Users can update own notification emails"
+  ON public.notification_emails FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM projects WHERE projects.id::text = notification_emails.project_id::text AND projects.user_id = auth.uid()));
+
+CREATE POLICY "Users can delete own notification emails"
+  ON public.notification_emails FOR DELETE
+  USING (EXISTS (SELECT 1 FROM projects WHERE projects.id::text = notification_emails.project_id::text AND projects.user_id = auth.uid()));
+```
+
+### NotificationsPage.tsx
+
+- Usa `useProject()` para obter o `selectedProject.id`
+- CRUD direto via Supabase client na tabela `notification_emails`
+- Validacao de email com regex simples
+- Toggle de ativo/inativo via Switch component
+- Botao "Enviar teste" que chama a edge function `notify-status-change` com status de teste
+
+### Edge Function `notify-status-change`
+
+- Recebe `project_id` no body junto com `status`, `statusCode`, `checkedAt`
+- Busca emails ativos: `SELECT email FROM notification_emails WHERE project_id = $1 AND enabled = true`
+- Se nenhum email na tabela, usa fallback do secret `NOTIFICATION_EMAIL_TO`
+- Envia para todos os emails encontrados
+
+### Sidebar
+
+- Adicionar "Notificacoes" com icone `Bell` na secao fixa (junto com "Projetos"), abaixo dos grupos colapsaveis
+
 ### Arquivos a criar
 
-- `src/components/ComponentHealthPanel.tsx`
-- `src/components/UptimeTimeline.tsx`
-- `src/components/AcquirerHealthTable.tsx`
+- `src/pages/NotificationsPage.tsx`
 
 ### Arquivos a modificar
 
-- `supabase/functions/health-check/index.ts` - retornar todos os campos
-- `src/hooks/useHealthCheck.ts` - tipos expandidos, historico, notificacoes browser
-- `src/components/StatusBanner.tsx` - mensagens atualizadas com lista de componentes
-- `src/components/SystemHealthBar.tsx` - formula de score granular
-- `src/pages/DashboardOverview.tsx` - integrar novos componentes
+- `supabase/functions/notify-status-change/index.ts` - buscar emails do banco
+- `src/components/TelescopeSidebar.tsx` - adicionar link
+- `src/App.tsx` - adicionar rota
+- Migration SQL para criar a tabela
 
-### Dependencias
-
-- Nenhuma nova dependencia. Usa Web Audio API e Notification API nativas do browser.
-- Componentes UI existentes: Badge, Table, Tooltip, Card.
-
-&nbsp;
-
- 1. Browser em background - setInterval de 2 min é throttled pelo Chrome quando a aba fica em segundo plano. Pede pra ele adicionar um listener de visibilitychange para re-checar imediatamente quando o
-
-  usuário voltar à aba.
-
-  2. Botão "Verificar agora" - Além do polling automático, ter um botão manual para forçar check instantâneo.
-
-  3. Edge Function como proxy - Se o Supabase cair, o monitoramento cai junto. Ele deveria tratar o erro da Edge Function separado do erro do gateway (diferenciar "não consegui acessar minha edge function" de
-
-  "gateway está offline").
-
-  De resto, o plano está correto - tipos, score, timeline, notificações, tudo alinhado com o endpoint. Pode aprovar.
+Deve ter tambem as configurações do resend OK
