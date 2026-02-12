@@ -1,106 +1,229 @@
+# Integracao Completa com Health Check do Gateway
+
+## Visao Geral
+
+Reescrever o sistema de monitoramento para consumir todos os dados do endpoint `/api/v1/health`, adicionar painel de componentes, timeline de disponibilidade, detalhes de adquirentes e notificacoes no browser.
+
+---
+
+## 1. Reescrever o Hook `useHealthCheck`
+
+**Arquivo:** `src/hooks/useHealthCheck.ts`
+
+Mudancas principais:
+
+- Expandir o tipo `HealthChecks` para incluir os novos campos: `php`, `storage`, `database.connections`, `database.driver`, `acquirers[].transactions_24h`, `acquirers[].success_rate`, `acquirers[].last_transaction_at`, `last_transaction.last_at`, `last_transaction.status`
+- Manter historico das ultimas 30 verificacoes em um array `history` no state
+- Cada entrada do historico: `{ timestamp, status, isUp }`
+- Adicionar logica de notificacao no browser: quando status mudar de "operational" para "down"/"degraded"/null, disparar `Notification API` e tocar som de alerta
+- Manter a logica existente de disparar email via `notify-status-change`
+
+Novo tipo exportado:
+
+```text
+HealthCheckEntry {
+  timestamp: string
+  status: "operational" | "degraded" | "down" | null
+  isUp: boolean
+}
+
+HealthChecks {
+  php: { status, version, memory_usage_mb, memory_limit } | null
+  database: { status, latency_ms, driver, connections: { active, max, percent } } | null
+  redis: { status, latency_ms } | null
+  queue: { status, pending_jobs, failed_jobs } | null
+  storage: { status, writable } | null
+  lastTransaction: { status, last_at, minutes_ago } | null
+  acquirers: Array<{ name, slug, status, transactions_24h, success_rate, failure_rate, last_transaction_at }>
+}
+
+HealthCheckState {
+  ...campos existentes...
+  history: HealthCheckEntry[]  // ultimas 30 verificacoes
+}
+```
+
+---
+
+## 2. Atualizar Edge Function `health-check`
+
+**Arquivo:** `supabase/functions/health-check/index.ts`
+
+- Parsear e retornar todos os campos novos do JSON (php, storage, database.connections, acquirers completo, last_transaction completo)
+- Manter a estrutura atual mas passar os dados adicionais
+
+---
+
+## 3. Atualizar Score do Sistema
+
+**Arquivo:** `src/components/SystemHealthBar.tsx`
+
+Substituir a logica de score atual pela formula detalhada:
+
+```text
+Score base = 100
+
+// Prioridade maxima
+fetch falhou / status "down" → score = 0
+
+// Status degraded
+status === "degraded" → -30
+
+// Componentes individuais
+database.status === "error" → -40
+database.status === "slow" → -10
+redis.status === "error" → -30
+redis.status === "slow" → -5
+queue.status === "critical" → -25
+queue.status === "warning" → -10
+storage.status === "error" → -20
+
+// Adquirentes
+Cada adquirente "critical" → -15
+Cada adquirente "warning" → -5
+
+// Inatividade
+minutes_ago > 1440 → -100
+minutes_ago > 60 → -40
+minutes_ago > 30 → -20
+minutes_ago > 10 → -10
+
+Score minimo = 0
+```
+
+Atualizar o tooltip com todos os fatores individuais listados.
+
+---
+
+## 4. Atualizar Banner de Status
+
+**Arquivo:** `src/components/StatusBanner.tsx`
+
+Manter a mesma prioridade de renderizacao ja implementada, mas atualizar as mensagens:
+
+- Fetch falhou: "Gateway offline - sem resposta ha X minutos"
+- status "down": "Gateway com falha critica - [listar componentes com problema]"
+- status "degraded": "Gateway degradado - [listar componentes com problema]"
+- Inatividade > 30min: "Nenhuma transacao nos ultimos X minutos"
+- Tudo ok: "Sistema operacional"
+
+---
+
+## 5. Criar Painel de Componentes
+
+**Novo arquivo:** `src/components/ComponentHealthPanel.tsx`
+
+Card com grid de componentes, cada um com indicador colorido:
 
 
-# Atualizar Health Check para usar o endpoint correto e dados detalhados
+| Componente  | Verde | Amarelo | Vermelho |
+| ----------- | ----- | ------- | -------- |
+| PHP         | ok    | -       | -        |
+| Database    | ok    | slow    | error    |
+| Redis       | ok    | slow    | error    |
+| Fila        | ok    | warning | critical |
+| Storage     | ok    | -       | error    |
+| Adquirentes | ok    | warning | critical |
 
-## O que muda
 
-A URL atual (`https://app.sellxpay.com.br/api/v1/health`) esta errada e retornava 404. A URL correta e `https://api.sellxpay.com.br/api/v1/health` e retorna um JSON rico com status de banco, Redis, fila e adquirentes.
+Mostrar informacoes extras ao lado de cada componente:
 
-## Alteracoes
+- Database: latencia em ms, conexoes ativas/max
+- Redis: latencia em ms
+- Fila: jobs pendentes e falhados
+- PHP: versao e memoria
 
-### 1. Edge Function `health-check` - Corrigir URL e retornar JSON completo
+---
 
-- Trocar a URL para `https://api.sellxpay.com.br/api/v1/health`
-- Em vez de consumir o body como texto, parsear o JSON e retornar todos os campos relevantes para o frontend
-- Retornar: `status`, `statusCode`, `checks` (database, redis, queue, last_transaction, acquirers)
+## 6. Criar Timeline de Disponibilidade
 
-### 2. Hook `useHealthCheck` - Expandir o state com dados detalhados
+**Novo arquivo:** `src/components/UptimeTimeline.tsx`
 
-Novo estado exposto:
+Barra horizontal com 30 blocos (1 bloco = 1 check de 2 min = 1 hora total).
+Cada bloco colorido conforme o resultado daquele check:
 
-- `status`: `"operational"` | `"degraded"` | `"down"` | `null`
-- `statusCode`: HTTP status code
-- `checks`: objeto com database, redis, queue, last_transaction, acquirers
-- Logica de notificacao: disparar email quando transicionar para `"down"` ou quando o fetch falhar
+- Verde: operational
+- Amarelo: degraded
+- Vermelho: down ou fetch falhou
+- Cinza: sem dado ainda
 
-### 3. `StatusBanner` - Usar as novas regras
+Tooltip em cada bloco mostrando horario e status.
 
-- Fetch falhou / timeout / HTTP != 200 → Banner vermelho "Gateway OFFLINE"
-- `status === "down"` → Banner vermelho "Gateway DOWN" (com detalhes de qual componente caiu)
-- `status === "degraded"` → Banner amarelo "Gateway degradado"
-- `checks.last_transaction.minutes_ago > 30` → Aplicar penalidade de inatividade do health check (substitui a logica atual de `lastEventAt` para inatividade quando o health check esta disponivel)
-- `status === "operational"` e sem problemas → Banner verde normal
+---
 
-### 4. `SystemHealthBar` - Novos fatores granulares
+## 7. Criar Tabela de Adquirentes Detalhada
 
-Fatores adicionados ao tooltip:
+**Novo arquivo:** `src/components/AcquirerHealthTable.tsx`
 
-- **Health check status**: "down" = -100, "degraded" = -30, "operational" = 0
-- **Fila critica**: `checks.queue.status === "critical"` → -20
-- **Inatividade (transacao)**: `checks.last_transaction.minutes_ago` usando os thresholds existentes (>10min = -20, >30min = -40, >60min = -70, >24h = -100)
-- **Database/Redis**: mostrar latencia como informacao nos fatores
-- **Adquirentes**: usar `checks.acquirers[].failure_rate` para enriquecer os dados de adquirentes
+Tabela com colunas:
+
+- Nome (com slug em texto menor)
+- Status (badge colorido: verde/amarelo/vermelho)
+- Transacoes 24h
+- Taxa de sucesso %
+- Taxa de falha %
+- Ultima transacao (tempo relativo usando `formatDistanceToNow`)
+
+Dados vindos de `useHealthCheck().checks.acquirers`.
+
+---
+
+## 8. Notificacoes no Browser
+
+**Dentro de** `src/hooks/useHealthCheck.ts`
+
+Quando o status mudar de "operational" para qualquer outro estado:
+
+- Pedir permissao via `Notification.requestPermission()` (uma vez)
+- Disparar `new Notification("Gateway Alert", { body: "..." })`
+- Tocar som de alerta usando `new Audio()` com um beep sintetizado via Web Audio API
+- Manter a chamada existente ao `notify-status-change` para email
+
+---
+
+## 9. Integrar no Dashboard
+
+**Arquivo:** `src/pages/DashboardOverview.tsx`
+
+Adicionar os novos componentes abaixo do banner de status:
+
+1. `UptimeTimeline` - timeline de disponibilidade (logo abaixo do banner)
+2. `ComponentHealthPanel` - painel de componentes (na area do hero, ao lado ou abaixo da SystemHealthBar)
+3. `AcquirerHealthTable` - substituir ou complementar o `ProviderHealth` existente com dados do health check
 
 ---
 
 ## Detalhes Tecnicos
 
-### Edge Function `health-check/index.ts`
+### Arquivos a criar
 
-```text
-URL: https://api.sellxpay.com.br/api/v1/health
-Timeout: 10s
-Retorno: { status, statusCode, checks, isUp, error? }
-- isUp = statusCode === 200 && status !== "down"
-- Se fetch falhar: { isUp: false, status: null, statusCode: null, error: message }
-```
+- `src/components/ComponentHealthPanel.tsx`
+- `src/components/UptimeTimeline.tsx`
+- `src/components/AcquirerHealthTable.tsx`
 
-### Hook `useHealthCheck.ts`
+### Arquivos a modificar
 
-Novo tipo:
+- `supabase/functions/health-check/index.ts` - retornar todos os campos
+- `src/hooks/useHealthCheck.ts` - tipos expandidos, historico, notificacoes browser
+- `src/components/StatusBanner.tsx` - mensagens atualizadas com lista de componentes
+- `src/components/SystemHealthBar.tsx` - formula de score granular
+- `src/pages/DashboardOverview.tsx` - integrar novos componentes
 
-```text
-HealthCheckState {
-  isUp: boolean | null
-  status: "operational" | "degraded" | "down" | null
-  statusCode: number | null
-  lastCheckedAt: string | null
-  error: string | null
-  checks: {
-    database: { status, latency_ms }
-    redis: { status, latency_ms }
-    queue: { status, failed_jobs }
-    lastTransaction: { minutes_ago }
-    acquirers: Array<{ name, failure_rate }>
-  } | null
-}
-```
+### Dependencias
 
-Logica de notificacao: disparar `notify-status-change` quando `prevStatus` era `"operational"` e novo status e `"down"` ou fetch falhou.
+- Nenhuma nova dependencia. Usa Web Audio API e Notification API nativas do browser.
+- Componentes UI existentes: Badge, Table, Tooltip, Card.
 
-### StatusBanner.tsx
+&nbsp;
 
-Prioridade de renderizacao:
+ 1. Browser em background - setInterval de 2 min é throttled pelo Chrome quando a aba fica em segundo plano. Pede pra ele adicionar um listener de visibilitychange para re-checar imediatamente quando o
 
-1. `healthCheck.isUp === false` (fetch falhou) → Vermelho "Gateway OFFLINE (HTTP XXX)"
-2. `healthCheck.status === "down"` → Vermelho "Gateway DOWN" + detalhes (DB/Redis offline)
-3. `healthCheck.status === "degraded"` → Amarelo "Gateway degradado"
-4. Inatividade via `checks.lastTransaction.minutes_ago > 30` → Amarelo/Vermelho de inatividade
-5. Score normal com penalidades
+  usuário voltar à aba.
 
-### SystemHealthBar.tsx
+  2. Botão "Verificar agora" - Além do polling automático, ter um botão manual para forçar check instantâneo.
 
-Novos fatores no array:
+  3. Edge Function como proxy - Se o Supabase cair, o monitoramento cai junto. Ele deveria tratar o erro da Edge Function separado do erro do gateway (diferenciar "não consegui acessar minha edge function" de
 
-- `"Status: down"` → impact -100
-- `"Status: degraded"` → impact -30  
-- `"Fila: X jobs falhados"` → impact -20 (se queue.status === "critical")
-- `"Ultima transacao: Xmin atras"` → impact baseado nos thresholds
-- Database e Redis latency como fatores informativos
+  "gateway está offline").
 
-### Arquivos modificados
-
-- `supabase/functions/health-check/index.ts` - URL correta + retornar JSON completo
-- `src/hooks/useHealthCheck.ts` - Novo tipo expandido + logica de status
-- `src/components/StatusBanner.tsx` - Novas regras de banner (down/degraded/operational)
-- `src/components/SystemHealthBar.tsx` - Fatores granulares do health check
+  De resto, o plano está correto - tipos, score, timeline, notificações, tudo alinhado com o endpoint. Pode aprovar.
