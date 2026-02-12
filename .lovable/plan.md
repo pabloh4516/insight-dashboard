@@ -1,88 +1,77 @@
 
 
-# Redesign Visual — Estilo Profissional
+# Dashboard Redesign — Visual Rico e Profissional
 
-Trocar o visual "videogame cyberpunk" por um estilo limpo e profissional, inspirado em ferramentas como Vercel, Linear e Datadog.
+Transformar o painel de "grid de cards com numeros" para um dashboard moderno com hierarquia visual clara, mais dados contextuais e micro-interacoes.
 
-## O que muda
+## O que muda visualmente
 
-### Cores e Tipografia
-- Remover fonte Orbitron (display futurista) — usar apenas JetBrains Mono para dados e Inter/system-ui para interface
-- Trocar cores neon brilhantes por tons mais suaves e profissionais
-- Remover todos os efeitos de glow (text-shadow, box-shadow neon)
-- Remover animacoes de scan-line, glitch e border-glow
+### Hero Section (topo)
+- Card principal grande mostrando o status geral do sistema: uptime, requests/min em tempo real, e um indicador de saude (barra de progresso verde/amarelo/vermelho)
+- Ao lado, dois mini-cards destacados: "Taxa de Erro" com sparkline embutido e "Tempo de Resposta Medio" com tendencia (seta para cima/baixo)
 
-### Paleta nova
-- Fundo: cinza escuro neutro (sem tom azulado exagerado)
-- Texto: branco/cinza sem text-shadow
-- Sucesso: verde suave (#22c55e)
-- Erro: vermelho suave (#ef4444)
-- Aviso: amarelo/amber (#f59e0b)
-- Info: azul (#3b82f6)
-- Destaques: sem glow, apenas cor solida ou badge com fundo sutil
+### Cards de metricas (2a linha)
+- Trocar o grid de 10 cards identicos por um layout mais inteligente:
+  - Cards maiores para metricas criticas (Requisicoes, Erros, Tarefas) com sparklines inline
+  - Cards menores para metricas secundarias (Cache, Comandos, E-mails) em formato compacto horizontal
+- Cada card mostra variacao percentual vs periodo anterior (ex: "+12% vs ontem") com seta verde/vermelha
+- Hover nos cards mostra tooltip com mini-grafico das ultimas 6 horas
 
-### Componentes afetados
-- Sidebar: remover "TELESCOPE" em Orbitron, usar texto normal, remover "Sistema Ativo" com ping neon
-- StatusCard: remover glow e animacao de borda, usar cards simples com borda sutil
-- PageHeader: remover gradiente neon na linha divisoria, usar linha cinza simples
-- DataTable: manter funcional, ajustar cores dos badges
-- LogsPage: manter layout estilo Vercel mas com cores profissionais
-- LiveNotification: remover glow verde, usar toast simples
-- Todas as paginas: trocar classes text-neon-* por cores normais do Tailwind
+### Grafico de atividade (melhorado)
+- Trocar de AreaChart simples para um grafico mais rico com:
+  - Selector de periodo no topo (1h, 6h, 24h, 7d)
+  - Legenda interativa (clicar para mostrar/esconder series)
+  - Linha de media pontilhada
+  - Gradiente mais suave no preenchimento
 
-### Grid de fundo
-- Remover grid-bg (linhas de circuito) do layout principal
+### Feed de atividade recente (novo)
+- Coluna lateral ou secao abaixo do grafico com os ultimos 8-10 eventos do sistema
+- Cada item mostra: icone do tipo, descricao curta, horario relativo ("ha 2min")
+- Items coloridos por severidade (vermelho para erros, verde para sucesso)
+- Link para a pagina de detalhe correspondente
+
+### Indicadores de saude dos provedores (novo)
+- Barra horizontal mostrando status dos provedores (BSPAY, SuitPay, EzzeBank)
+- Bolinhas verde/amarelo/vermelho ao lado do nome
+- Latencia media de cada provedor
 
 ---
 
 ## Detalhes tecnicos
 
-### `src/index.css`
-- Atualizar variaveis CSS: cores mais neutras, remover variaveis neon
-- Remover classes utilitarias: glow-cyan, glow-green, glow-magenta, glow-red, text-neon-*, scan-line, grid-bg, circuit-line
-- Remover keyframes: scanline, glitch, pulse-neon, border-glow
-- Trocar font-display de Orbitron para Inter/system-ui
-- Importar Inter do Google Fonts no lugar de Orbitron
+### `src/pages/DashboardOverview.tsx`
+- Reescrever o layout completo com as novas secoes
+- Adicionar estado para periodo selecionado no grafico
+- Importar novos componentes: SparklineCard, RecentActivityFeed, ProviderHealth
+- Usar grid CSS mais elaborado: hero ocupa full-width, cards criticos em 3 colunas, secundarios em linha compacta
 
-### `tailwind.config.ts`
-- Remover fontFamily display (Orbitron)
-- Remover cores neon do objeto colors
-- Remover keyframes pulse-neon e border-glow
-- Atualizar cores semanticas (sucesso, erro, aviso, info)
+### Novo: `src/components/SparklineCard.tsx`
+- Card de metrica com sparkline SVG embutido (sem dependencia extra, SVG puro com polyline)
+- Props: title, value, trend (numero positivo/negativo), sparkData (array de numeros), color
+- A trend mostra seta para cima/baixo com cor verde/vermelha e porcentagem
+
+### Novo: `src/components/RecentActivityFeed.tsx`
+- Lista vertical dos ultimos eventos do allEntries (mockData)
+- Cada item: icone do tipo, texto resumido, badge de status, horario relativo
+- Usa date-fns `formatDistanceToNow` para horarios relativos
+- Clicavel: navega para a pagina do tipo correspondente
+
+### Novo: `src/components/ProviderHealth.tsx`
+- Componente que mostra status dos provedores de pagamento
+- Dados mockados: BSPAY (online, 245ms), SuitPay (online, 450ms), EzzeBank (offline, timeout)
+- Indicador visual com bolinha de cor e barra de latencia
+
+### Novo: `src/components/SystemHealthBar.tsx`
+- Barra horizontal que resume a saude geral baseada em: taxa de erro, jobs falhados, provedores offline
+- Score de 0-100 com gradiente de cor (verde > amarelo > vermelho)
+- Breakdown em hover mostrando cada fator
+
+### `src/data/mockData.ts`
+- Adicionar sparkline data para cada categoria (array de 12 valores representando ultimas 12 horas)
+- Adicionar dados de provedores com status e latencia
+- Adicionar valores de comparacao "vs ontem" para cada metrica
 
 ### `src/components/StatusCard.tsx`
-- Remover mapa de glow, usar cores com opacidade de fundo (bg-green-500/10 text-green-500)
-- Remover animacao border-glow
-- Remover font-display, usar font-semibold normal
-
-### `src/components/PageHeader.tsx`
-- Trocar text-neon-cyan por text-primary (azul neutro)
-- Remover gradiente neon na linha divisoria, usar bg-border simples
-- Remover font-display
-
-### `src/components/TelescopeSidebar.tsx`
-- Titulo: "Telescope" em font-semibold normal ao inves de Orbitron
-- Remover ping neon verde do "Sistema Ativo"
-- Simplificar botao Ao Vivo com cores normais
-- Trocar todas as referencias neon por cores padrao
-
-### `src/components/LiveNotification.tsx`
-- Remover glow-green, usar borda verde sutil
-
-### Todas as paginas (Requests, Jobs, Exceptions, etc.)
-- Trocar text-neon-* por cores Tailwind normais (text-green-500, text-red-500, etc.)
-- Remover font-display de labels e badges
-- Manter a estrutura e funcionalidade intactas
-
-### `src/pages/LogsPage.tsx`
-- Manter layout estilo Vercel
-- Trocar cores neon por cores profissionais
-- Manter animacao de fade-in para novos logs
-
-### `src/components/ActivityBar.tsx` e `src/components/LogsFilterPanel.tsx`
-- Atualizar cores de neon para tons profissionais
-
-### `src/pages/DashboardOverview.tsx`
-- Remover glow-* dos cards de metricas
-- Atualizar cores do grafico para tons profissionais
+- Manter como fallback para paginas internas
+- Nao sera mais usado no dashboard principal (substituido pelo SparklineCard)
 
