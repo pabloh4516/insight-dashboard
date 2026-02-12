@@ -1,5 +1,4 @@
 import { TelescopeSidebar } from "./TelescopeSidebar";
-import { LiveNotification } from "./LiveNotification";
 
 interface TelescopeLayoutProps {
   children: React.ReactNode;
@@ -14,7 +13,6 @@ export function TelescopeLayout({ children }: TelescopeLayoutProps) {
           {children}
         </div>
       </main>
-      <LiveNotification />
     </div>
   );
 }
