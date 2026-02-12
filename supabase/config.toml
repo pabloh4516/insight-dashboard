@@ -2,3 +2,9 @@ project_id = "dsdwtlvikwsxkediqqfm"
 
 [functions.ingest]
 verify_jwt = false
+
+[functions.health-check]
+verify_jwt = false
+
+[functions.notify-status-change]
+verify_jwt = false

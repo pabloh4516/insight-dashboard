@@ -1,5 +1,6 @@
 import { Activity } from "lucide-react";
 import { useGatewayStats } from "@/hooks/useGatewayStats";
+import { useHealthCheck } from "@/hooks/useHealthCheck";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function getHealthColor(score: number): string {
@@ -15,9 +16,32 @@ function getHealthLabel(score: number): string {
 }
 
 export function SystemHealthBar() {
-  const { errorsToday, totalEvents, acquirerStats } = useGatewayStats("24h");
+  const { errorsToday, totalEvents, acquirerStats, lastEventAt } = useGatewayStats("24h");
+  const healthCheck = useHealthCheck();
 
   const factors: { label: string; impact: number }[] = [];
+
+  // Health check factor
+  if (healthCheck.isUp === false) {
+    factors.push({ label: `Health check FALHOU${healthCheck.statusCode ? ` (HTTP ${healthCheck.statusCode})` : ''}`, impact: -100 });
+  } else if (healthCheck.isUp === true) {
+    factors.push({ label: "Health check: OK", impact: 0 });
+  }
+
+  // Inactivity factor
+  const minutesInactive = lastEventAt
+    ? (Date.now() - new Date(lastEventAt).getTime()) / 60000
+    : Infinity;
+
+  if (minutesInactive > 1440) {
+    factors.push({ label: "Sem eventos há mais de 24h", impact: -100 });
+  } else if (minutesInactive > 60) {
+    factors.push({ label: `Sem eventos há ${Math.round(minutesInactive / 60)}h`, impact: -70 });
+  } else if (minutesInactive > 30) {
+    factors.push({ label: `Sem eventos há ${Math.round(minutesInactive)}min`, impact: -40 });
+  } else if (minutesInactive > 10) {
+    factors.push({ label: `Sem eventos há ${Math.round(minutesInactive)}min`, impact: -20 });
+  }
 
   // Error rate impact
   const errorRate = totalEvents > 0 ? (errorsToday / totalEvents) * 100 : 0;
@@ -42,7 +66,11 @@ export function SystemHealthBar() {
     factors.push({ label: "Sem eventos recebidos", impact: -10 });
   }
 
-  const score = Math.round(Math.max(0, Math.min(100, 100 + factors.reduce((sum, f) => sum + f.impact, 0))));
+  // If health check is DOWN, score = 0 instantly
+  const healthCheckDown = healthCheck.isUp === false;
+  const score = healthCheckDown
+    ? 0
+    : Math.round(Math.max(0, Math.min(100, 100 + factors.reduce((sum, f) => sum + f.impact, 0))));
   const color = getHealthColor(score);
   const label = getHealthLabel(score);
 

@@ -39,6 +39,7 @@ export interface GatewayStats {
   recentErrors: DbEvent[];
   recentEvents: DbEvent[];
   allEvents: DbEvent[];
+  lastEventAt: string | null;
   isLoading: boolean;
   refetch: () => void;
 }
@@ -112,6 +113,11 @@ export function useGatewayStats(period: PeriodKey = '24h'): GatewayStats {
 
     const recentErrors = events.filter(e => e.status === 'error').slice(0, 5);
 
+    // Last event timestamp
+    const lastEventAt = events.length > 0
+      ? events.reduce((latest, e) => e.created_at > latest ? e.created_at : latest, events[0].created_at)
+      : null;
+
     return {
       requestsToday,
       jobsToday,
@@ -124,6 +130,7 @@ export function useGatewayStats(period: PeriodKey = '24h'): GatewayStats {
       recentErrors,
       recentEvents: events.slice(0, 10),
       allEvents: events,
+      lastEventAt,
       isLoading,
       refetch,
     };
