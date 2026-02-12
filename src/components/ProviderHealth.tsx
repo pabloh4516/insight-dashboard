@@ -1,68 +1,65 @@
 import { Wifi } from "lucide-react";
-import { providerHealthData, ProviderStatus } from "@/data/mockData";
+import { useGatewayStats } from "@/hooks/useGatewayStats";
 
-function StatusDot({ status }: { status: ProviderStatus["status"] }) {
-  const colors = {
-    online: "bg-primary",
-    degraded: "bg-warning",
-    offline: "bg-error",
-  };
+function StatusDot({ successRate }: { successRate: number }) {
+  const color = successRate >= 95 ? "bg-primary" : successRate >= 70 ? "bg-warning" : "bg-destructive";
+  const isOnline = successRate >= 95;
 
   return (
     <span className="relative flex h-2 w-2">
-      {status === "online" && (
-        <span className={`absolute inline-flex h-full w-full rounded-full ${colors[status]} opacity-40 animate-ping`} />
-      )}
-      <span className={`relative inline-flex rounded-full h-2 w-2 ${colors[status]}`} />
+      {isOnline && <span className={`absolute inline-flex h-full w-full rounded-full ${color} opacity-40 animate-ping`} />}
+      <span className={`relative inline-flex rounded-full h-2 w-2 ${color}`} />
     </span>
   );
 }
 
-function LatencyBar({ latency, status }: { latency: number | null; status: ProviderStatus["status"] }) {
-  if (latency === null) {
-    return <span className="text-[10px] text-error font-mono">timeout</span>;
-  }
-
-  const maxLatency = 1000;
-  const pct = Math.min((latency / maxLatency) * 100, 100);
-  const color = latency < 300 ? "bg-primary" : latency < 600 ? "bg-warning" : "bg-error";
+function LatencyBar({ successRate }: { successRate: number }) {
+  const pct = Math.min(successRate, 100);
+  const color = successRate >= 95 ? "bg-primary" : successRate >= 70 ? "bg-warning" : "bg-destructive";
 
   return (
     <div className="flex items-center gap-2">
       <div className="h-1 w-16 bg-secondary rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-[10px] text-muted-foreground font-mono">{latency}ms</span>
+      <span className="text-[10px] text-muted-foreground font-mono">{successRate.toFixed(0)}%</span>
     </div>
   );
 }
 
+const formatBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
 export function ProviderHealth() {
+  const { acquirerStats, isLoading } = useGatewayStats("24h");
+
   return (
     <div className="border rounded-lg bg-card">
       <div className="px-4 py-3 border-b flex items-center gap-2">
         <Wifi className="h-3.5 w-3.5 text-primary" />
         <span className="text-[10px] uppercase tracking-widest text-primary font-medium">
-          Provedores
+          Adquirentes
         </span>
       </div>
       <div className="divide-y divide-border">
-        {providerHealthData.map((provider) => (
-          <div
-            key={provider.name}
-            className={`flex items-center justify-between px-4 py-2.5 ${provider.status === 'offline' ? 'bg-error/5' : ''}`}
-          >
-            <div className="flex items-center gap-2.5">
-              <StatusDot status={provider.status} />
-              <span className="text-xs font-medium text-foreground">{provider.name}</span>
-              <span className="text-[10px] text-muted-foreground capitalize">{provider.status}</span>
+        {isLoading ? (
+          <div className="py-6 text-center text-xs text-muted-foreground">Carregando...</div>
+        ) : acquirerStats.length === 0 ? (
+          <div className="py-6 text-center text-xs text-muted-foreground">Sem dados de adquirentes</div>
+        ) : (
+          acquirerStats.map((acq) => (
+            <div key={acq.name} className={`flex items-center justify-between px-4 py-2.5 ${acq.successRate < 70 ? 'bg-destructive/5' : ''}`}>
+              <div className="flex items-center gap-2.5">
+                <StatusDot successRate={acq.successRate} />
+                <span className="text-xs font-medium text-foreground capitalize">{acq.name}</span>
+                <span className="text-[10px] text-muted-foreground">{acq.count} txns</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] text-muted-foreground font-mono">{formatBRL(acq.totalAmount)}</span>
+                <LatencyBar successRate={acq.successRate} />
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <LatencyBar latency={provider.latency} status={provider.status} />
-              <span className="text-[10px] text-muted-foreground font-mono">{provider.uptime}%</span>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

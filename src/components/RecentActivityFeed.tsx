@@ -1,66 +1,28 @@
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  Globe, Send, Briefcase, AlertTriangle, FileText,
-  Database, Mail, Zap, HardDrive, Terminal
-} from "lucide-react";
-import { allEntries, AnyEntry } from "@/data/mockData";
+import { CreditCard, ArrowDownToLine, TestTube, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useGatewayStats } from "@/hooks/useGatewayStats";
+import { DbEvent } from "@/hooks/useSupabaseEvents";
 
-const typeConfig: Record<string, { icon: typeof Globe; label: string; route: string }> = {
-  request: { icon: Globe, label: "Requisição", route: "/requests" },
-  client_request: { icon: Send, label: "Chamada Ext.", route: "/client-requests" },
-  job: { icon: Briefcase, label: "Tarefa", route: "/jobs" },
-  exception: { icon: AlertTriangle, label: "Erro", route: "/exceptions" },
-  log: { icon: FileText, label: "Log", route: "/logs" },
-  query: { icon: Database, label: "Query", route: "/queries" },
-  mail: { icon: Mail, label: "E-mail", route: "/mail" },
-  event: { icon: Zap, label: "Evento", route: "/events" },
-  cache: { icon: HardDrive, label: "Cache", route: "/cache" },
-  command: { icon: Terminal, label: "Comando", route: "/commands" },
+const typeConfig: Record<string, { icon: typeof Zap; label: string; color: string }> = {
+  payment: { icon: CreditCard, label: "Pagamento", color: "text-primary" },
+  withdrawal: { icon: ArrowDownToLine, label: "Saque", color: "text-warning" },
+  test: { icon: TestTube, label: "Teste", color: "text-muted-foreground" },
 };
 
-function getEntrySummary(entry: AnyEntry): string {
-  switch (entry.type) {
-    case "request": return `${entry.method} ${entry.url} → ${entry.statusCode}`;
-    case "client_request": return `${entry.provider}: ${entry.method} → ${entry.statusCode}`;
-    case "job": return `${entry.name} (${entry.status})`;
-    case "exception": return entry.message.slice(0, 60);
-    case "log": return entry.message.slice(0, 60);
-    case "query": return entry.sql.slice(0, 50) + "...";
-    case "mail": return `${entry.subject} → ${entry.to}`;
-    case "event": return entry.name;
-    case "cache": return `${entry.operation}: ${entry.key}`;
-    case "command": return entry.command;
-    default: return "";
-  }
-}
+const formatBRL = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-function getSeverityBorderColor(entry: AnyEntry): string {
-  if (entry.type === "exception") return "border-l-error";
-  if (entry.type === "log" && entry.level === "error") return "border-l-error";
-  if (entry.type === "log" && entry.level === "warning") return "border-l-warning";
-  if (entry.type === "job" && entry.status === "failed") return "border-l-error";
-  if (entry.type === "request" && entry.statusCode >= 500) return "border-l-error";
-  if (entry.type === "request" && entry.statusCode >= 400) return "border-l-warning";
-  if (entry.type === "client_request" && entry.statusCode >= 500) return "border-l-error";
-  return "border-l-transparent";
-}
-
-function getSeverityColor(entry: AnyEntry): string {
-  if (entry.type === "exception") return "text-error";
-  if (entry.type === "log" && entry.level === "error") return "text-error";
-  if (entry.type === "log" && entry.level === "warning") return "text-warning";
-  if (entry.type === "job" && entry.status === "failed") return "text-error";
-  if (entry.type === "request" && entry.statusCode >= 500) return "text-error";
-  if (entry.type === "request" && entry.statusCode >= 400) return "text-warning";
-  if (entry.type === "client_request" && entry.statusCode >= 500) return "text-error";
-  return "text-muted-foreground";
+function getAmount(event: DbEvent): number | null {
+  const meta = event.meta as Record<string, unknown> | null;
+  const amount = meta?.amount;
+  return typeof amount === 'number' ? amount : null;
 }
 
 export function RecentActivityFeed() {
   const navigate = useNavigate();
-  const recentEntries = allEntries.slice(0, 10);
+  const { recentEvents, isLoading } = useGatewayStats("24h");
 
   return (
     <div className="border rounded-lg bg-card">
@@ -68,43 +30,47 @@ export function RecentActivityFeed() {
         <span className="text-[10px] uppercase tracking-widest text-primary font-medium">
           Atividade Recente
         </span>
-        <button
-          onClick={() => navigate("/logs")}
-          className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
-        >
+        <button onClick={() => navigate("/events")} className="text-[10px] text-muted-foreground hover:text-primary transition-colors">
           Ver todos →
         </button>
       </div>
       <div className="divide-y divide-border relative">
-        {recentEntries.map((entry, index) => {
-          const config = typeConfig[entry.type];
-          if (!config) return null;
-          const Icon = config.icon;
-          const severityColor = getSeverityColor(entry);
-          const borderColor = getSeverityBorderColor(entry);
+        {isLoading ? (
+          <div className="py-8 text-center text-xs text-muted-foreground">Carregando...</div>
+        ) : recentEvents.length === 0 ? (
+          <div className="py-8 text-center text-xs text-muted-foreground">Nenhum evento recente</div>
+        ) : (
+          recentEvents.map((event, index) => {
+            const config = typeConfig[event.type] ?? { icon: Zap, label: event.type, color: "text-muted-foreground" };
+            const Icon = config.icon;
+            const amount = getAmount(event);
+            const borderColor = event.status === 'error' ? 'border-l-destructive' : event.status === 'warning' ? 'border-l-warning' : 'border-l-transparent';
 
-          return (
-            <button
-              key={entry.id}
-              onClick={() => navigate(config.route)}
-              className={`w-full flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left border-l-2 ${borderColor}`}
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${severityColor}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-medium text-muted-foreground">{config.label}</span>
+            return (
+              <button
+                key={event.id}
+                onClick={() => navigate("/events")}
+                className={`w-full flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left border-l-2 ${borderColor}`}
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${config.color}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-medium text-muted-foreground">{config.label}</span>
+                    {amount !== null && <span className="text-[10px] font-mono text-primary">{formatBRL(amount)}</span>}
+                  </div>
+                  <p className="text-xs text-foreground truncate">{event.summary ?? '—'}</p>
                 </div>
-                <p className="text-xs text-foreground truncate">{getEntrySummary(entry)}</p>
-              </div>
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-                {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true, locale: ptBR })}
-              </span>
-            </button>
-          );
-        })}
-        {/* Fade-out gradient on last item */}
-        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+                  {formatDistanceToNow(new Date(event.created_at), { addSuffix: true, locale: ptBR })}
+                </span>
+              </button>
+            );
+          })
+        )}
+        {recentEvents.length > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+        )}
       </div>
     </div>
   );
