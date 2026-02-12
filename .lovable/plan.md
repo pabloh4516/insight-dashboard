@@ -1,66 +1,79 @@
 
-# Adicionar Paginação às Páginas de Eventos
 
-## Problema
-- Atualmente, todas as páginas de eventos (Commands, Requests, Exceptions, etc.) carregam até 500 eventos do banco e exibem todos na tela
-- Isso causa renderização pesada e scroll infinito
-- Usuário pode ficar perdido em listas muito grandes
+# Adicionar 5 Novos Tipos de Evento
 
-## Solução
-Implementar paginação client-side com 25 itens por página (configurável) em:
-1. **GenericEventPage** - Afeta Commands, Requests, Exceptions, Jobs, Mail, Cache, Queries, Webhooks
-2. **EventsPage** - Página de eventos com filtros
-3. **SecurityPage** - Página de segurança
+## Resumo
+Adicionar suporte visual completo para `webhook_in`, `webhook_out`, `login`, `config_change` e `acquirer_switch` na sidebar, filtros da EventsPage, e paginas dedicadas usando o GenericEventPage.
 
-## Mudanças Técnicas
+---
 
-### 1. Novo: `src/components/PaginationControls.tsx`
-Componente reutilizável de paginação com:
-- Navegação: Anterior/Próxima
-- Indicador: "Página X de Y"
-- Seletor de itens por página (10, 25, 50, 100)
-- Estado integrado com URL params (opcional)
+## Arquivos a Criar
 
-```typescript
-interface PaginationControlsProps {
-  currentPage: number;
-  totalPages: number;
-  itemsPerPage: number;
-  onPageChange: (page: number) => void;
-  onItemsPerPageChange: (count: number) => void;
-  totalItems: number;
-}
-```
+### 1. `src/pages/WebhooksInPage.tsx`
+Pagina simples usando GenericEventPage com `type="webhook_in"`, titulo "Webhooks Recebidos", icone `ArrowDownLeft`.
 
-### 2. Modificar: `src/components/GenericEventPage.tsx`
-- Adicionar estado de paginação com `useState(1)`
-- Fatiar `events` array para mostrar apenas items do range
-- Adicionar `<PaginationControls />` no rodapé
-- Padrão: 25 itens por página
+### 2. `src/pages/WebhooksOutPage.tsx`
+GenericEventPage com `type="webhook_out"`, titulo "Webhooks Enviados", icone `ArrowUpRight`.
 
-### 3. Modificar: `src/pages/EventsPage.tsx`
-- Adicionar paginação (mesma abordagem)
-- Padrão: 25 itens por página
+### 3. `src/pages/LoginsPage.tsx`
+GenericEventPage com `type="login"`, titulo "Logins", icone `LogIn`.
 
-### 4. Modificar: `src/pages/SecurityPage.tsx`
-- Adicionar paginação na lista de eventos de segurança
-- Manter agrupamento por IP sem paginação (é uma síntese)
-- Padrão: 25 itens por página
+### 4. `src/pages/ConfigChangesPage.tsx`
+GenericEventPage com `type="config_change"`, titulo "Alteracoes de Config", icone `Settings`.
 
-## Benefícios
-- ✅ Melhor performance (renderização de 25 itens vs 500)
-- ✅ Interface menos poluída
-- ✅ Scroll mais rápido
-- ✅ Melhor experiência de usuário
-- ✅ Consistente em todas as páginas de eventos
+### 5. `src/pages/AcquirerSwitchPage.tsx`
+GenericEventPage com `type="acquirer_switch"`, titulo "Fallback de Adquirentes", icone `RefreshCw`.
 
-## Limites por Página
-- Padrão: **25 itens** (otimista, bom para scroll)
-- Seletor permite: 10, 25, 50, 100 itens
+---
 
-## Ordem de Implementação
-1. Criar `PaginationControls.tsx`
-2. Refatorar `GenericEventPage.tsx`
-3. Refatorar `EventsPage.tsx`
-4. Refatorar `SecurityPage.tsx`
+## Arquivos a Modificar
+
+### 6. `src/components/TelescopeSidebar.tsx`
+- Importar icones: `ArrowDownLeft`, `ArrowUpRight`, `LogIn`, `Settings`, `RefreshCw`
+- Adicionar 5 novos itens no array `navItems` (antes de "Registros"):
+  - Webhooks Recebidos (`/webhooks-in`, ArrowDownLeft, `counts?.webhook_in`)
+  - Webhooks Enviados (`/webhooks-out`, ArrowUpRight, `counts?.webhook_out`)
+  - Logins (`/logins`, LogIn, `counts?.login`)
+  - Alteracoes de Config (`/config-changes`, Settings, `counts?.config_change`)
+  - Fallback Adquirentes (`/acquirer-switch`, RefreshCw, `counts?.acquirer_switch`)
+
+### 7. `src/App.tsx`
+- Importar as 5 novas paginas
+- Adicionar 5 rotas: `/webhooks-in`, `/webhooks-out`, `/logins`, `/config-changes`, `/acquirer-switch`
+
+### 8. `src/pages/EventsPage.tsx`
+- Importar icones: `ArrowDownLeft`, `ArrowUpRight`, `LogIn`, `Settings`, `RefreshCw`
+- Adicionar ao `typeConfig`:
+  - `webhook_in`: icone ArrowDownLeft, label "Webhook In", cor azul (`bg-blue-500/15 text-blue-400`)
+  - `webhook_out`: icone ArrowUpRight, label "Webhook Out", cor cyan (`bg-cyan-500/15 text-cyan-400`)
+  - `login`: icone LogIn, label "Login", cor roxa (`bg-purple-500/15 text-purple-400`)
+  - `config_change`: icone Settings, label "Config", cor laranja (`bg-orange-500/15 text-orange-400`)
+  - `acquirer_switch`: icone RefreshCw, label "Fallback", cor vermelha (`bg-destructive/15 text-destructive`)
+- Adicionar 5 novos TabsTrigger nos filtros
+
+### 9. `src/hooks/useSupabaseEvents.ts`
+- Adicionar `config_change` e `acquirer_switch` ao array de types em `useEventCounts` (os outros 3 ja existem)
+
+---
+
+## Detalhes Tecnicos
+
+### Cores por tipo
+| Tipo | Cor | Classe Tailwind |
+|------|-----|-----------------|
+| webhook_in | Azul | `bg-blue-500/15 text-blue-400` |
+| webhook_out | Cyan | `bg-cyan-500/15 text-cyan-400` |
+| login | Roxo | `bg-purple-500/15 text-purple-400` |
+| config_change | Laranja | `bg-orange-500/15 text-orange-400` |
+| acquirer_switch | Vermelho | `bg-destructive/15 text-destructive` |
+
+### Detalhes expandidos
+Os campos meta de cada tipo serao renderizados automaticamente pelo sistema existente de `Object.entries(meta)` no EventRow -- nao precisa de tratamento especial pois o GenericEventPage e o EventsPage ja iteram sobre todos os campos do meta JSON.
+
+### Icones Lucide usados
+- `ArrowDownLeft` para webhook_in
+- `ArrowUpRight` para webhook_out
+- `LogIn` para login
+- `Settings` para config_change
+- `RefreshCw` para acquirer_switch
 
