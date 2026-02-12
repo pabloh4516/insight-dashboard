@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
-        display: ['Orbitron', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -51,13 +51,10 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        neon: {
-          cyan: "hsl(var(--neon-cyan))",
-          green: "hsl(var(--neon-green))",
-          magenta: "hsl(var(--neon-magenta))",
-          red: "hsl(var(--neon-red))",
-          yellow: "hsl(var(--neon-yellow))",
-        },
+        success: "hsl(var(--color-success))",
+        error: "hsl(var(--color-error))",
+        warning: "hsl(var(--color-warning))",
+        info: "hsl(var(--color-info))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -83,20 +80,10 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "pulse-neon": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.5" },
-        },
-        "border-glow": {
-          "0%, 100%": { borderColor: "hsl(var(--neon-cyan) / 0.3)" },
-          "50%": { borderColor: "hsl(var(--neon-cyan) / 0.6)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-neon": "pulse-neon 2s ease-in-out infinite",
-        "border-glow": "border-glow 2s ease-in-out infinite",
       },
     },
   },

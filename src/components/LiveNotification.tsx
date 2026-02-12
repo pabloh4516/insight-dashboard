@@ -33,10 +33,10 @@ export function LiveNotification() {
 
   return (
     <div className="fixed bottom-4 right-4 z-50 animate-fade-in">
-      <div className="bg-card border border-neon-green/50 rounded-lg p-3 shadow-lg max-w-xs glow-green">
+      <div className="bg-card border border-success/30 rounded-lg p-3 shadow-lg max-w-xs">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] font-display uppercase tracking-widest text-neon-green mb-1">
+            <div className="text-[10px] uppercase tracking-wide text-success mb-1 font-medium">
               ✓ Novo {typeLabels[notification.type] || notification.type}
             </div>
             <p className="text-xs text-foreground/80 truncate">

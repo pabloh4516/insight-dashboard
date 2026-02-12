@@ -32,7 +32,7 @@ export function LogsFilterPanel({ sections, selected, onToggle, onReset }: LogsF
   return (
     <div className="w-56 shrink-0 space-y-1 text-xs">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground">Filtros</span>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Filtros</span>
         {hasAnyFilter && (
           <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground" onClick={onReset}>
             <RotateCcw className="h-3 w-3 mr-1" /> Resetar
@@ -46,7 +46,7 @@ export function LogsFilterPanel({ sections, selected, onToggle, onReset }: LogsF
           <div key={section.key} className="border-b border-border/30 pb-2 mb-2">
             <button
               onClick={() => toggleSection(section.key)}
-              className="flex items-center gap-1 w-full text-left text-[10px] font-display uppercase tracking-widest text-muted-foreground hover:text-foreground py-1"
+              className="flex items-center gap-1 w-full text-left text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground py-1 font-medium"
             >
               {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {section.label}

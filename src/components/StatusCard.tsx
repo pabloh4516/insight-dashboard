@@ -10,11 +10,11 @@ interface StatusCardProps {
 }
 
 const colorMap = {
-  cyan: { glow: 'glow-cyan', text: 'text-neon-cyan' },
-  green: { glow: 'glow-green', text: 'text-neon-green' },
-  magenta: { glow: 'glow-magenta', text: 'text-neon-magenta' },
-  red: { glow: 'glow-red', text: 'text-neon-red' },
-  yellow: { glow: '', text: 'text-neon-yellow' },
+  cyan: { bg: 'bg-info/10', text: 'text-info' },
+  green: { bg: 'bg-success/10', text: 'text-success' },
+  magenta: { bg: '', text: 'text-purple-400' },
+  red: { bg: 'bg-error/10', text: 'text-error' },
+  yellow: { bg: 'bg-warning/10', text: 'text-warning' },
 };
 
 export function StatusCard({ title, value, icon: Icon, color, subtitle }: StatusCardProps) {
@@ -35,12 +35,12 @@ export function StatusCard({ title, value, icon: Icon, color, subtitle }: Status
   }, [value]);
 
   return (
-    <div className={`border rounded-lg p-4 bg-card ${c.glow} animate-border-glow`}>
+    <div className="border rounded-lg p-4 bg-card">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground">{title}</span>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">{title}</span>
         <Icon className={`h-4 w-4 ${c.text}`} />
       </div>
-      <div className={`text-2xl font-display font-bold ${c.text}`}>{display}</div>
+      <div className={`text-2xl font-semibold ${c.text}`}>{display}</div>
       {subtitle && <p className="text-[10px] text-muted-foreground mt-1">{subtitle}</p>}
     </div>
   );

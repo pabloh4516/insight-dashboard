@@ -4,15 +4,15 @@ import { DataTable } from "@/components/DataTable";
 import { cacheEntries, CacheEntry } from "@/data/mockData";
 
 const opConfig: Record<string, { color: string; label: string }> = {
-  hit: { color: 'text-neon-green', label: '✅ Encontrado' },
-  miss: { color: 'text-neon-red', label: '❌ Não encontrado' },
-  set: { color: 'text-neon-cyan', label: '💾 Salvo' },
-  forget: { color: 'text-neon-yellow', label: '🗑️ Removido' },
+  hit: { color: 'text-success', label: '✅ Encontrado' },
+  miss: { color: 'text-error', label: '❌ Não encontrado' },
+  set: { color: 'text-info', label: '💾 Salvo' },
+  forget: { color: 'text-warning', label: '🗑️ Removido' },
 };
 
 const columns = [
-  { key: 'op', header: 'Operação', render: (c: CacheEntry) => <span className={`font-display font-bold ${opConfig[c.operation].color}`}>{opConfig[c.operation].label}</span> },
-  { key: 'key', header: 'Chave', render: (c: CacheEntry) => <code className="text-neon-cyan text-[11px]">{c.key}</code> },
+  { key: 'op', header: 'Operação', render: (c: CacheEntry) => <span className={`font-semibold ${opConfig[c.operation].color}`}>{opConfig[c.operation].label}</span> },
+  { key: 'key', header: 'Chave', render: (c: CacheEntry) => <code className="text-info text-[11px]">{c.key}</code> },
   { key: 'ttl', header: 'Validade', render: (c: CacheEntry) => <span className="text-muted-foreground">{c.ttl ? `${c.ttl}s` : '—'}</span> },
   { key: 'time', header: 'Horário', render: (c: CacheEntry) => <span className="text-muted-foreground">{new Date(c.timestamp).toLocaleTimeString()}</span> },
 ];

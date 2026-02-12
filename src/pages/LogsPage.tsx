@@ -45,7 +45,6 @@ function toUnifiedLog(entry: any): UnifiedLog {
       stackTrace: entry.stackTrace,
     };
   }
-  // log
   return {
     id: entry.id, timestamp: entry.timestamp, level: entry.level ?? 'info',
     host: entry.host ?? hosts[Math.abs(entry.id.charCodeAt(4)) % hosts.length],
@@ -58,16 +57,16 @@ function toUnifiedLog(entry: any): UnifiedLog {
 const statusColor: Record<string, string> = {
   info: '',
   debug: '',
-  warning: 'bg-neon-yellow/10 border-l-2 border-l-neon-yellow',
-  error: 'bg-neon-red/10 border-l-2 border-l-neon-red',
+  warning: 'bg-warning/5 border-l-2 border-l-warning',
+  error: 'bg-error/5 border-l-2 border-l-error',
 };
 
 function getStatusClass(code?: number) {
   if (!code) return '';
-  if (code >= 500) return 'text-neon-red';
-  if (code >= 400) return 'text-neon-yellow';
-  if (code >= 300) return 'text-neon-cyan';
-  return 'text-neon-green';
+  if (code >= 500) return 'text-error';
+  if (code >= 400) return 'text-warning';
+  if (code >= 300) return 'text-info';
+  return 'text-success';
 }
 
 const LogsPage = () => {
@@ -85,7 +84,7 @@ const LogsPage = () => {
 
   const toggleLocalLive = useCallback(() => {
     if (!isLive && !localLive) {
-      toggleLive(); // activate global
+      toggleLive();
     }
     setLocalLive(prev => !prev);
   }, [isLive, localLive, toggleLive]);
@@ -98,7 +97,6 @@ const LogsPage = () => {
     });
   };
 
-  // Combine all entries into unified logs
   const allLogs = useMemo(() => {
     const staticUnified = [
       ...staticLogs.map(toUnifiedLog),
@@ -115,7 +113,6 @@ const LogsPage = () => {
     );
   }, [liveEntries]);
 
-  // Filtered logs
   const filteredLogs = useMemo(() => {
     return allLogs.filter(log => {
       if (filters.level.size > 0 && !filters.level.has(log.level)) return false;
@@ -128,14 +125,12 @@ const LogsPage = () => {
     });
   }, [allLogs, filters, search]);
 
-  // Auto-scroll when live
   useEffect(() => {
     if (effectiveLive && scrollRef.current) {
       scrollRef.current.scrollTop = 0;
     }
   }, [filteredLogs, effectiveLive]);
 
-  // Build filter sections with counts
   const filterSections = useMemo(() => {
     const levelCounts: Record<string, number> = { info: 0, warning: 0, error: 0, debug: 0 };
     const hostCounts: Record<string, number> = {};
@@ -195,14 +190,14 @@ const LogsPage = () => {
         <Button
           variant={effectiveLive ? 'default' : 'outline'}
           size="sm"
-          className={`h-8 text-xs gap-1.5 ${effectiveLive ? 'bg-neon-green/20 text-neon-green border-neon-green/40 hover:bg-neon-green/30' : ''}`}
+          className={`h-8 text-xs gap-1.5 ${effectiveLive ? 'bg-success/20 text-success border-success/30 hover:bg-success/30' : ''}`}
           onClick={toggleLocalLive}
         >
           {effectiveLive ? (
             <>
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-green" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
               </span>
               Ao Vivo
             </>
@@ -240,7 +235,7 @@ const LogsPage = () => {
         <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-hidden">
           <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-card/90 backdrop-blur-sm z-10">
-              <tr className="border-b border-border text-[10px] font-display uppercase tracking-widest text-muted-foreground">
+              <tr className="border-b border-border text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
                 <th className="text-left px-3 py-2 w-6" />
                 <th className="text-left px-3 py-2 w-32">Horário</th>
                 <th className="text-left px-2 py-2 w-14">Método</th>
@@ -260,7 +255,7 @@ const LogsPage = () => {
                       className={`border-b border-border/20 hover:bg-muted/20 transition-colors cursor-pointer ${statusColor[log.level] || ''} ${i < 3 && effectiveLive ? 'animate-fade-in' : ''}`}
                     >
                       <td className="px-3 py-1.5">
-                        {isExpanded ? <ChevronDown className="h-3 w-3 text-neon-cyan" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                        {isExpanded ? <ChevronDown className="h-3 w-3 text-primary" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
                       </td>
                       <td className="px-3 py-1.5 text-muted-foreground tabular-nums whitespace-nowrap">
                         {formatTime(log.timestamp)}
@@ -287,11 +282,11 @@ const LogsPage = () => {
                           <div className="space-y-3">
                             {/* Status badge */}
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground">Status</span>
+                              <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Status</span>
                               <div className={`px-2 py-1 rounded text-[10px] font-semibold ${
-                                log.level === 'error' ? 'bg-neon-red/20 text-neon-red border border-neon-red/40' :
-                                log.level === 'warning' ? 'bg-neon-yellow/20 text-neon-yellow border border-neon-yellow/40' :
-                                log.level === 'info' ? 'bg-neon-green/20 text-neon-green border border-neon-green/40' :
+                                log.level === 'error' ? 'bg-error/10 text-error border border-error/30' :
+                                log.level === 'warning' ? 'bg-warning/10 text-warning border border-warning/30' :
+                                log.level === 'info' ? 'bg-success/10 text-success border border-success/30' :
                                 'bg-muted/30 text-muted-foreground border border-muted/40'
                               }`}>
                                 {log.level.toUpperCase()}
@@ -301,7 +296,7 @@ const LogsPage = () => {
                             {/* Duration */}
                             {log.duration && (
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground">Duração</span>
+                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Duração</span>
                                 <span className="text-xs text-foreground font-mono">{log.duration}ms</span>
                               </div>
                             )}
@@ -309,8 +304,8 @@ const LogsPage = () => {
                             {/* Context */}
                             {log.context && Object.keys(log.context).length > 0 && (
                               <div>
-                                <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground block mb-1">Contexto</span>
-                                <pre className="text-[10px] bg-background/50 border border-border/50 rounded p-2 text-neon-green overflow-auto max-h-40 font-mono">
+                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium block mb-1">Contexto</span>
+                                <pre className="text-[10px] bg-background/50 border border-border/50 rounded p-2 text-success overflow-auto max-h-40 font-mono">
                                   {JSON.stringify(log.context, null, 2)}
                                 </pre>
                               </div>
@@ -319,8 +314,8 @@ const LogsPage = () => {
                             {/* Stack Trace */}
                             {log.stackTrace && log.stackTrace.length > 0 && (
                               <div>
-                                <span className="text-[10px] font-display uppercase tracking-widest text-muted-foreground block mb-1">Stack Trace</span>
-                                <div className="text-[9px] bg-background/50 border border-border/50 rounded p-2 text-neon-red/80 font-mono space-y-0.5 max-h-40 overflow-auto">
+                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium block mb-1">Stack Trace</span>
+                                <div className="text-[9px] bg-background/50 border border-border/50 rounded p-2 text-error/80 font-mono space-y-0.5 max-h-40 overflow-auto">
                                   {log.stackTrace.map((line, idx) => (
                                     <div key={idx}>{line}</div>
                                   ))}
