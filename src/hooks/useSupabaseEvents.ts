@@ -97,28 +97,36 @@ export const useSupabaseEvents = (options: UseSupabaseEventsOptions) => {
   };
 };
 
-export const useEventCounts = (projectId: string | null) => {
+export const useEventCounts = (projectId: string | null, sinceMap?: Record<string, string | null>) => {
   return useQuery({
-    queryKey: ['event-counts', projectId],
+    queryKey: ['event-counts', projectId, sinceMap],
     queryFn: async () => {
       if (!projectId) return {};
       const types = ['request', 'exception', 'query', 'job', 'email', 'cache', 'command', 'error', 'webhook_in', 'webhook_out', 'login', 'payment', 'withdrawal', 'test', 'security', 'config_change', 'acquirer_switch'];
       const counts: Record<string, number> = {};
 
       for (const t of types) {
-        const { count } = await supabase
+        let q = supabase
           .from('events')
           .select('*', { count: 'exact', head: true })
           .eq('project_id', projectId)
           .eq('type', t);
+
+        const since = sinceMap?.[t];
+        if (since) q = q.gt('created_at', since);
+
+        const { count } = await q;
         counts[t] = count ?? 0;
       }
 
       // Total
-      const { count: total } = await supabase
+      let totalQ = supabase
         .from('events')
         .select('*', { count: 'exact', head: true })
         .eq('project_id', projectId);
+      const totalSince = sinceMap?.['total'];
+      if (totalSince) totalQ = totalQ.gt('created_at', totalSince);
+      const { count: total } = await totalQ;
       counts.total = total ?? 0;
 
       // Errors

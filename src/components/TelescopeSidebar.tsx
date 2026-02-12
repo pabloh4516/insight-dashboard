@@ -7,7 +7,8 @@ import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProject } from "@/contexts/ProjectContext";
 import { useEventCounts } from "@/hooks/useSupabaseEvents";
-import { useState, useMemo } from "react";
+import { useLastVisited, routeToEventType } from "@/hooks/useLastVisited";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { LucideIcon } from "lucide-react";
 
@@ -26,9 +27,29 @@ interface SidebarGroup {
 export function TelescopeSidebar() {
   const { signOut, user } = useAuth();
   const { projects, selectedProject, setSelectedProjectId } = useProject();
-  const { data: counts } = useEventCounts(selectedProject?.id ?? null);
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const { markVisited, getLastVisited } = useLastVisited();
   const location = useLocation();
+
+  // Build sinceMap from last visited timestamps
+  const sinceMap = useMemo(() => {
+    const map: Record<string, string | null> = {};
+    const allTypes = ['request', 'exception', 'query', 'job', 'email', 'cache', 'command', 'error', 'webhook_in', 'webhook_out', 'login', 'payment', 'withdrawal', 'test', 'security', 'config_change', 'acquirer_switch', 'total'];
+    for (const t of allTypes) {
+      map[t] = getLastVisited(t);
+    }
+    return map;
+  }, [getLastVisited]);
+
+  const { data: counts } = useEventCounts(selectedProject?.id ?? null, sinceMap);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+
+  // Mark current page as visited when route changes
+  useEffect(() => {
+    const eventType = routeToEventType[location.pathname];
+    if (eventType) {
+      markVisited(eventType);
+    }
+  }, [location.pathname, markVisited]);
 
   const groups: SidebarGroup[] = useMemo(() => [
     {
