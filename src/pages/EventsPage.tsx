@@ -2,7 +2,8 @@ import { Zap, CreditCard, ArrowDownToLine, TestTube, Search, ChevronDown, Chevro
 import { PageHeader } from "@/components/PageHeader";
 import { useSupabaseEvents, DbEvent } from "@/hooks/useSupabaseEvents";
 import { useProject } from "@/contexts/ProjectContext";
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { PaginationControls } from "@/components/PaginationControls";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -91,12 +92,27 @@ const EventsPage = () => {
   const { selectedProject } = useProject();
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const { events, isLoading } = useSupabaseEvents({
     projectId: selectedProject?.id ?? null,
     type: typeFilter === 'all' ? undefined : typeFilter,
     search: search || undefined,
   });
+
+  const totalPages = Math.max(1, Math.ceil(events.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedEvents = useMemo(
+    () => events.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage),
+    [events, safePage, itemsPerPage]
+  );
+
+  const handlePageChange = useCallback((page: number) => setCurrentPage(page), []);
+  const handleItemsPerPageChange = useCallback((count: number) => {
+    setItemsPerPage(count);
+    setCurrentPage(1);
+  }, []);
 
   return (
     <div>
@@ -128,7 +144,6 @@ const EventsPage = () => {
         </div>
       </div>
 
-      {/* Events List */}
       <div className="border rounded-lg bg-card">
         {isLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground text-xs">Carregando eventos...</div>
@@ -137,7 +152,17 @@ const EventsPage = () => {
             Nenhum evento encontrado. Envie eventos pelo seu gateway para vê-los aqui.
           </div>
         ) : (
-          events.map(event => <EventRow key={event.id} event={event} />)
+          <>
+            {paginatedEvents.map(event => <EventRow key={event.id} event={event} />)}
+            <PaginationControls
+              currentPage={safePage}
+              totalPages={totalPages}
+              itemsPerPage={itemsPerPage}
+              onPageChange={handlePageChange}
+              onItemsPerPageChange={handleItemsPerPageChange}
+              totalItems={events.length}
+            />
+          </>
         )}
       </div>
     </div>

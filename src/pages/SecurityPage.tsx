@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { PaginationControls } from "@/components/PaginationControls";
 import { Shield, Search, List, Network, ChevronDown, ChevronRight, AlertTriangle, ShieldAlert, ShieldCheck, Globe, Monitor } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useProject } from "@/contexts/ProjectContext";
@@ -18,6 +19,8 @@ export default function SecurityPage() {
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const { events, liveEvents, isLoading } = useSupabaseEvents({
     projectId: selectedProject?.id ?? null,
@@ -46,6 +49,19 @@ export default function SecurityPage() {
   }, [events]);
 
   const liveIds = useMemo(() => new Set(liveEvents.map((e) => e.id)), [liveEvents]);
+
+  const totalPages = Math.max(1, Math.ceil(events.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedEvents = useMemo(
+    () => events.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage),
+    [events, safePage, itemsPerPage]
+  );
+
+  const handlePageChange = useCallback((page: number) => setCurrentPage(page), []);
+  const handleItemsPerPageChange = useCallback((count: number) => {
+    setItemsPerPage(count);
+    setCurrentPage(1);
+  }, []);
 
   const getMeta = (e: DbEvent, key: string) => String((e.meta as any)?.[key] ?? "—");
 
@@ -170,17 +186,27 @@ export default function SecurityPage() {
           </CardContent>
         </Card>
       ) : viewMode === "list" ? (
-        <div className="space-y-1">
-          {events.map((e) => (
-            <EventRow
-              key={e.id}
-              event={e}
-              isLive={liveIds.has(e.id)}
-              expanded={expandedId === e.id}
-              onToggle={() => setExpandedId(expandedId === e.id ? null : e.id)}
-              getMeta={getMeta}
-            />
-          ))}
+        <div>
+          <div className="space-y-1">
+            {paginatedEvents.map((e) => (
+              <EventRow
+                key={e.id}
+                event={e}
+                isLive={liveIds.has(e.id)}
+                expanded={expandedId === e.id}
+                onToggle={() => setExpandedId(expandedId === e.id ? null : e.id)}
+                getMeta={getMeta}
+              />
+            ))}
+          </div>
+          <PaginationControls
+            currentPage={safePage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+            onItemsPerPageChange={handleItemsPerPageChange}
+            totalItems={events.length}
+          />
         </div>
       ) : (
         <div className="space-y-4">
