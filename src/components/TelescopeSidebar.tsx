@@ -1,7 +1,7 @@
 import {
   Zap, FileText, LayoutDashboard, LogOut, FolderOpen, ChevronDown, ChevronRight,
   Globe, AlertTriangle, Database, Cog, Mail, HardDrive, Terminal, Shield,
-  ArrowDownLeft, ArrowUpRight, LogIn, Settings, RefreshCw
+  ArrowDownLeft, ArrowUpRight, LogIn, Settings, RefreshCw, Bell
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -187,7 +187,7 @@ export function TelescopeSidebar() {
           );
         })}
 
-        {/* Projetos - fixed, no group */}
+        {/* Fixed items */}
         <div className="mt-1 pt-1 border-t border-[hsl(var(--sidebar-border))]">
           <NavLink
             to="/projects"
@@ -196,6 +196,14 @@ export function TelescopeSidebar() {
           >
             <FolderOpen className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
             <span className="flex-1 truncate">Projetos</span>
+          </NavLink>
+          <NavLink
+            to="/notifications"
+            className="flex items-center gap-3 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
+            activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
+          >
+            <Bell className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
+            <span className="flex-1 truncate">Notificações</span>
           </NavLink>
         </div>
       </nav>

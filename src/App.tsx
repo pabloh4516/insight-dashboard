@@ -21,6 +21,7 @@ import LoginsPage from "./pages/LoginsPage";
 import ConfigChangesPage from "./pages/ConfigChangesPage";
 import AcquirerSwitchPage from "./pages/AcquirerSwitchPage";
 import ProjectsPage from "./pages/ProjectsPage";
+import NotificationsPage from "./pages/NotificationsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -65,6 +66,7 @@ const AppRoutes = () => {
           <Route path="/acquirer-switch" element={<AcquirerSwitchPage />} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/auth" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
