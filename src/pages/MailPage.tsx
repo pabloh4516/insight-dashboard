@@ -3,19 +3,20 @@ import { PageHeader } from "@/components/PageHeader";
 import { DataTable } from "@/components/DataTable";
 import { mails, MailEntry } from "@/data/mockData";
 
-const statusConfig: Record<string, string> = { sent: 'text-neon-green', failed: 'text-neon-red', queued: 'text-neon-yellow' };
+const statusLabel: Record<string, string> = { sent: '✅ Enviado', failed: '❌ Falhou', queued: '⏳ Na fila' };
+const statusColor: Record<string, string> = { sent: 'text-neon-green', failed: 'text-neon-red', queued: 'text-neon-yellow' };
 
 const columns = [
-  { key: 'status', header: 'Status', render: (m: MailEntry) => <span className={statusConfig[m.status]}>{m.status === 'sent' ? '✅' : m.status === 'failed' ? '❌' : '⏳'} {m.status}</span> },
-  { key: 'to', header: 'To', render: (m: MailEntry) => <span className="text-neon-cyan">{m.to}</span> },
-  { key: 'subject', header: 'Subject', render: (m: MailEntry) => <span className="text-foreground">{m.subject}</span> },
-  { key: 'mailable', header: 'Mailable', render: (m: MailEntry) => <span className="text-muted-foreground text-[10px]">{m.mailable.split('\\').pop()}</span> },
-  { key: 'time', header: 'Time', render: (m: MailEntry) => <span className="text-muted-foreground">{new Date(m.timestamp).toLocaleTimeString()}</span> },
+  { key: 'status', header: 'Situação', render: (m: MailEntry) => <span className={statusColor[m.status]}>{statusLabel[m.status]}</span> },
+  { key: 'to', header: 'Destinatário', render: (m: MailEntry) => <span className="text-neon-cyan">{m.to}</span> },
+  { key: 'subject', header: 'Assunto', render: (m: MailEntry) => <span className="text-foreground">{m.subject}</span> },
+  { key: 'mailable', header: 'Tipo', render: (m: MailEntry) => <span className="text-muted-foreground text-[10px]">{m.mailable.split('\\').pop()}</span> },
+  { key: 'time', header: 'Horário', render: (m: MailEntry) => <span className="text-muted-foreground">{new Date(m.timestamp).toLocaleTimeString()}</span> },
 ];
 
 const MailPage = () => (
   <div>
-    <PageHeader title="Mail" icon={Mail} count={mails.length} subtitle="Sent emails" />
+    <PageHeader title="E-mails" icon={Mail} count={mails.length} subtitle="E-mails enviados pelo sistema" />
     <DataTable data={mails} columns={columns} getKey={m => m.id} />
   </div>
 );
