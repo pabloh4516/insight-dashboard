@@ -16,6 +16,11 @@ const typeConfig: Record<string, { icon: typeof Zap; label: string; color: strin
   payment: { icon: CreditCard, label: "Pagamento", color: "text-primary" },
   withdrawal: { icon: ArrowDownToLine, label: "Saque", color: "text-warning" },
   test: { icon: TestTube, label: "Teste", color: "text-muted-foreground" },
+  webhook_in: { icon: ArrowDownToLine, label: "Webhook In", color: "text-blue-400" },
+  webhook_out: { icon: Zap, label: "Webhook Out", color: "text-cyan-400" },
+  login: { icon: Shield, label: "Login", color: "text-purple-400" },
+  config_change: { icon: Terminal, label: "Config", color: "text-orange-400" },
+  acquirer_switch: { icon: AlertTriangle, label: "Fallback", color: "text-destructive" },
 };
 
 export function RecentActivityFeed() {

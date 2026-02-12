@@ -4,7 +4,9 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PageHeader } from "@/components/PageHeader";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { StatusBanner } from "@/components/StatusBanner";
+import { Tooltip as ShadTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { useState, useMemo } from "react";
 import { SparklineCard } from "@/components/SparklineCard";
 import { SystemHealthBar } from "@/components/SystemHealthBar";
@@ -39,29 +41,50 @@ const DashboardOverview = () => {
   const errorSparkline = useMemo(() => stats.hourlyData.map(h => h.errors), [stats.hourlyData]);
 
   return (
+    <TooltipProvider>
     <div>
       <PageHeader title="Painel Geral" icon={LayoutDashboard} subtitle="Monitoramento técnico — Saúde do sistema em tempo real" />
+
+      {/* Status Banner */}
+      <div className="mb-5 animate-fade-up">
+        <StatusBanner />
+      </div>
 
       {/* Hero */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
         <div className="lg:col-span-2 animate-fade-up">
-          <SystemHealthBar />
+          <ShadTooltip>
+            <TooltipTrigger asChild>
+              <div><SystemHealthBar /></div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p className="text-xs">Nota geral baseada em erros e velocidade de resposta</p></TooltipContent>
+          </ShadTooltip>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div className="border rounded-lg p-4 bg-card card-hover animate-fade-up" style={{ animationDelay: '100ms' }}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <Globe className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[10px] uppercase tracking-widest text-primary font-medium">Requisições</span>
-            </div>
-            <div className="text-lg font-bold font-mono text-foreground">{stats.requestsToday.toLocaleString()}</div>
-          </div>
-          <div className="border rounded-lg p-4 bg-card card-hover animate-fade-up" style={{ animationDelay: '150ms' }}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-              <span className="text-[10px] uppercase tracking-widest text-destructive font-medium">Erros Hoje</span>
-            </div>
-            <div className="text-lg font-bold font-mono text-foreground">{stats.errorsToday.toLocaleString()}</div>
-          </div>
+          <ShadTooltip>
+            <TooltipTrigger asChild>
+              <div className="border rounded-lg p-4 bg-card card-hover animate-fade-up" style={{ animationDelay: '100ms' }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Globe className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-[10px] uppercase tracking-widest text-primary font-medium">Requisições</span>
+                </div>
+                <div className="text-lg font-bold font-mono text-foreground">{stats.requestsToday.toLocaleString()}</div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent><p className="text-xs">Quantas vezes seu sistema foi chamado hoje</p></TooltipContent>
+          </ShadTooltip>
+          <ShadTooltip>
+            <TooltipTrigger asChild>
+              <div className="border rounded-lg p-4 bg-card card-hover animate-fade-up" style={{ animationDelay: '150ms' }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                  <span className="text-[10px] uppercase tracking-widest text-destructive font-medium">Erros Hoje</span>
+                </div>
+                <div className="text-lg font-bold font-mono text-foreground">{stats.errorsToday.toLocaleString()}</div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent><p className="text-xs">Quantidade de falhas nas operações</p></TooltipContent>
+          </ShadTooltip>
         </div>
       </div>
 
@@ -73,20 +96,25 @@ const DashboardOverview = () => {
         <div className="animate-fade-up" style={{ animationDelay: '260ms' }}>
           <SparklineCard title="Erros Hoje" value={stats.errorsToday} icon={AlertTriangle} trend={0} sparkData={errorSparkline.length > 1 ? errorSparkline : [0, 0]} color={COLORS.error} />
         </div>
-        <div className="animate-fade-up" style={{ animationDelay: '320ms' }}>
-          <div className="border rounded-lg p-4 bg-card card-hover" style={{ borderTopWidth: '2px', borderTopColor: COLORS.job }}>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Jobs Processados</span>
-              <Briefcase className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <div className="text-2xl font-bold text-foreground font-mono">{stats.jobsToday.toLocaleString()}</div>
-                <span className="text-[10px] text-muted-foreground mt-1">Taxa de sucesso: <span className="font-mono text-primary">{stats.jobSuccessRate.toFixed(0)}%</span></span>
+        <ShadTooltip>
+          <TooltipTrigger asChild>
+            <div className="animate-fade-up" style={{ animationDelay: '320ms' }}>
+              <div className="border rounded-lg p-4 bg-card card-hover" style={{ borderTopWidth: '2px', borderTopColor: COLORS.job }}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Jobs Processados</span>
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-foreground font-mono">{stats.jobsToday.toLocaleString()}</div>
+                    <span className="text-[10px] text-muted-foreground mt-1">Taxa de sucesso: <span className="font-mono text-primary">{stats.jobSuccessRate.toFixed(0)}%</span></span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </TooltipTrigger>
+          <TooltipContent><p className="text-xs">Tarefas automáticas que o sistema executou</p></TooltipContent>
+        </ShadTooltip>
       </div>
 
       {/* Secondary Cards */}
@@ -174,7 +202,7 @@ const DashboardOverview = () => {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 12%)" />
             <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'hsl(220, 10%, 50%)' }} />
             <YAxis tick={{ fontSize: 10, fill: 'hsl(220, 10%, 50%)' }} />
-            <Tooltip contentStyle={{ backgroundColor: 'hsl(220, 14%, 7%)', border: '1px solid hsl(220, 12%, 12%)', borderRadius: '8px', fontSize: '11px' }} />
+            <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(220, 14%, 7%)', border: '1px solid hsl(220, 12%, 12%)', borderRadius: '8px', fontSize: '11px' }} />
             {!hiddenSeries.has("requests") && (
               <Area type="monotone" dataKey="requests" name="Requisições" stroke={COLORS.request} fill="url(#gradRequests)" strokeWidth={2} />
             )}
@@ -199,7 +227,7 @@ const DashboardOverview = () => {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 12%, 12%)" />
             <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'hsl(220, 10%, 50%)' }} />
             <YAxis tick={{ fontSize: 10, fill: 'hsl(220, 10%, 50%)' }} />
-            <Tooltip contentStyle={{ backgroundColor: 'hsl(220, 14%, 7%)', border: '1px solid hsl(220, 12%, 12%)', borderRadius: '8px', fontSize: '11px' }} />
+            <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(220, 14%, 7%)', border: '1px solid hsl(220, 12%, 12%)', borderRadius: '8px', fontSize: '11px' }} />
             <Area type="monotone" dataKey="errors" name="Erros" stroke={COLORS.error} fill="url(#gradErrorsOnly)" strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>
@@ -215,6 +243,7 @@ const DashboardOverview = () => {
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 };
 

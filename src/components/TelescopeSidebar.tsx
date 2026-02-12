@@ -1,5 +1,5 @@
 import {
-  Zap, FileText, LayoutDashboard, LogOut, FolderOpen, ChevronDown,
+  Zap, FileText, LayoutDashboard, LogOut, FolderOpen, ChevronDown, ChevronRight,
   Globe, AlertTriangle, Database, Cog, Mail, HardDrive, Terminal, Shield,
   ArrowDownLeft, ArrowUpRight, LogIn, Settings, RefreshCw
 } from "lucide-react";
@@ -7,33 +7,97 @@ import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProject } from "@/contexts/ProjectContext";
 import { useEventCounts } from "@/hooks/useSupabaseEvents";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useLocation } from "react-router-dom";
+import { LucideIcon } from "lucide-react";
+
+interface NavItem {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+  count: number | null;
+}
+
+interface SidebarGroup {
+  label: string;
+  items: NavItem[];
+}
 
 export function TelescopeSidebar() {
   const { signOut, user } = useAuth();
   const { projects, selectedProject, setSelectedProjectId } = useProject();
   const { data: counts } = useEventCounts(selectedProject?.id ?? null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const location = useLocation();
 
-  const navItems = [
-    { title: "Painel Geral", url: "/", icon: LayoutDashboard, count: counts?.total ?? null },
-    { title: "Eventos", url: "/events", icon: Zap, count: counts?.payment ?? null },
-    { title: "Requests", url: "/requests", icon: Globe, count: counts?.request ?? null },
-    { title: "Exceptions", url: "/exceptions", icon: AlertTriangle, count: counts?.exception ?? null },
-    { title: "Queries", url: "/queries", icon: Database, count: counts?.query ?? null },
-    { title: "Jobs", url: "/jobs", icon: Cog, count: counts?.job ?? null },
-    { title: "Mail", url: "/mails", icon: Mail, count: counts?.email ?? null },
-    { title: "Cache", url: "/cache", icon: HardDrive, count: counts?.cache ?? null },
-    { title: "Commands", url: "/commands", icon: Terminal, count: counts?.command ?? null },
-    { title: "Segurança", url: "/security", icon: Shield, count: counts?.security ?? null },
-    { title: "Webhooks In", url: "/webhooks-in", icon: ArrowDownLeft, count: counts?.webhook_in ?? null },
-    { title: "Webhooks Out", url: "/webhooks-out", icon: ArrowUpRight, count: counts?.webhook_out ?? null },
-    { title: "Logins", url: "/logins", icon: LogIn, count: counts?.login ?? null },
-    { title: "Config", url: "/config-changes", icon: Settings, count: counts?.config_change ?? null },
-    { title: "Fallback", url: "/acquirer-switch", icon: RefreshCw, count: counts?.acquirer_switch ?? null },
-    { title: "Registros", url: "/logs", icon: FileText, count: null },
-    { title: "Projetos", url: "/projects", icon: FolderOpen, count: null },
-  ];
+  const groups: SidebarGroup[] = useMemo(() => [
+    {
+      label: "Visão Geral",
+      items: [
+        { title: "Painel Geral", url: "/", icon: LayoutDashboard, count: counts?.total ?? null },
+        { title: "Eventos", url: "/events", icon: Zap, count: counts?.payment ?? null },
+        { title: "Registros", url: "/logs", icon: FileText, count: null },
+      ],
+    },
+    {
+      label: "Operações",
+      items: [
+        { title: "Requests", url: "/requests", icon: Globe, count: counts?.request ?? null },
+        { title: "Queries", url: "/queries", icon: Database, count: counts?.query ?? null },
+        { title: "Jobs", url: "/jobs", icon: Cog, count: counts?.job ?? null },
+        { title: "Mail", url: "/mails", icon: Mail, count: counts?.email ?? null },
+        { title: "Cache", url: "/cache", icon: HardDrive, count: counts?.cache ?? null },
+        { title: "Commands", url: "/commands", icon: Terminal, count: counts?.command ?? null },
+      ],
+    },
+    {
+      label: "Segurança e Acesso",
+      items: [
+        { title: "Segurança", url: "/security", icon: Shield, count: counts?.security ?? null },
+        { title: "Logins", url: "/logins", icon: LogIn, count: counts?.login ?? null },
+        { title: "Config", url: "/config-changes", icon: Settings, count: counts?.config_change ?? null },
+      ],
+    },
+    {
+      label: "Integrações",
+      items: [
+        { title: "Webhooks In", url: "/webhooks-in", icon: ArrowDownLeft, count: counts?.webhook_in ?? null },
+        { title: "Webhooks Out", url: "/webhooks-out", icon: ArrowUpRight, count: counts?.webhook_out ?? null },
+        { title: "Fallback", url: "/acquirer-switch", icon: RefreshCw, count: counts?.acquirer_switch ?? null },
+      ],
+    },
+  ], [counts]);
+
+  // Auto-open group containing active route
+  const activeGroupIndices = useMemo(() => {
+    const indices = new Set<number>();
+    groups.forEach((group, i) => {
+      const match = group.items.some(item =>
+        item.url === "/" ? location.pathname === "/" : location.pathname.startsWith(item.url)
+      );
+      if (match) indices.add(i);
+    });
+    return indices;
+  }, [groups, location.pathname]);
+
+  const [openGroups, setOpenGroups] = useState<Set<number>>(activeGroupIndices);
+
+  // Keep active group open when route changes
+  useMemo(() => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      activeGroupIndices.forEach(i => next.add(i));
+      return next;
+    });
+  }, [activeGroupIndices]);
+
+  const toggleGroup = (index: number) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      next.has(index) ? next.delete(index) : next.add(index);
+      return next;
+    });
+  };
 
   return (
     <aside className="w-64 min-h-screen bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))] flex flex-col shrink-0">
@@ -87,23 +151,53 @@ export function TelescopeSidebar() {
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {navItems.map((item) => (
+        {groups.map((group, groupIndex) => {
+          const isOpen = openGroups.has(groupIndex);
+          return (
+            <div key={group.label} className="mb-1">
+              <button
+                onClick={() => toggleGroup(groupIndex)}
+                className="w-full flex items-center gap-2 px-5 py-2 text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronRight className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                <span className="font-medium">{group.label}</span>
+              </button>
+              {isOpen && (
+                <div>
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.url}
+                      to={item.url}
+                      end={item.url === "/"}
+                      className="flex items-center gap-3 px-5 pl-9 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
+                      activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
+                    >
+                      <item.icon className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
+                      <span className="flex-1 truncate">{item.title}</span>
+                      {item.count !== null && item.count > 0 && (
+                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground group-hover:text-foreground">
+                          {item.count}
+                        </span>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Projetos - fixed, no group */}
+        <div className="mt-1 pt-1 border-t border-[hsl(var(--sidebar-border))]">
           <NavLink
-            key={item.url}
-            to={item.url}
-            end={item.url === "/"}
+            to="/projects"
             className="flex items-center gap-3 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
             activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
           >
-            <item.icon className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
-            <span className="flex-1 truncate">{item.title}</span>
-            {item.count !== null && item.count > 0 && (
-              <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground group-hover:text-foreground">
-                {item.count}
-              </span>
-            )}
+            <FolderOpen className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
+            <span className="flex-1 truncate">Projetos</span>
           </NavLink>
-        ))}
+        </div>
       </nav>
 
       <div className="p-4 border-t border-[hsl(var(--sidebar-border))] space-y-3">
