@@ -1,24 +1,22 @@
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CreditCard, ArrowDownToLine, TestTube, Zap } from "lucide-react";
+import { CreditCard, ArrowDownToLine, TestTube, Zap, Globe, AlertTriangle, Briefcase, Mail, Terminal, Database, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useGatewayStats } from "@/hooks/useGatewayStats";
 import { DbEvent } from "@/hooks/useSupabaseEvents";
 
 const typeConfig: Record<string, { icon: typeof Zap; label: string; color: string }> = {
+  request: { icon: Globe, label: "Requisição", color: "text-primary" },
+  exception: { icon: AlertTriangle, label: "Exceção", color: "text-destructive" },
+  job: { icon: Briefcase, label: "Job", color: "text-blue-400" },
+  email: { icon: Mail, label: "E-mail", color: "text-green-400" },
+  command: { icon: Terminal, label: "Comando", color: "text-purple-400" },
+  query: { icon: Database, label: "Query", color: "text-cyan-400" },
+  security: { icon: Shield, label: "Segurança", color: "text-warning" },
   payment: { icon: CreditCard, label: "Pagamento", color: "text-primary" },
   withdrawal: { icon: ArrowDownToLine, label: "Saque", color: "text-warning" },
   test: { icon: TestTube, label: "Teste", color: "text-muted-foreground" },
 };
-
-const formatBRL = (value: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-
-function getAmount(event: DbEvent): number | null {
-  const meta = event.meta as Record<string, unknown> | null;
-  const amount = meta?.amount;
-  return typeof amount === 'number' ? amount : null;
-}
 
 export function RecentActivityFeed() {
   const navigate = useNavigate();
@@ -43,7 +41,6 @@ export function RecentActivityFeed() {
           recentEvents.map((event, index) => {
             const config = typeConfig[event.type] ?? { icon: Zap, label: event.type, color: "text-muted-foreground" };
             const Icon = config.icon;
-            const amount = getAmount(event);
             const borderColor = event.status === 'error' ? 'border-l-destructive' : event.status === 'warning' ? 'border-l-warning' : 'border-l-transparent';
 
             return (
@@ -57,7 +54,6 @@ export function RecentActivityFeed() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-medium text-muted-foreground">{config.label}</span>
-                    {amount !== null && <span className="text-[10px] font-mono text-primary">{formatBRL(amount)}</span>}
                   </div>
                   <p className="text-xs text-foreground truncate">{event.summary ?? '—'}</p>
                 </div>

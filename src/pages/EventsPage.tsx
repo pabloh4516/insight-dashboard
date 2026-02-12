@@ -1,4 +1,4 @@
-import { Zap, CreditCard, ArrowDownToLine, TestTube, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { Zap, CreditCard, ArrowDownToLine, TestTube, Search, ChevronDown, ChevronRight, Globe, AlertTriangle, Briefcase, Mail, Terminal, Database, Shield } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useSupabaseEvents, DbEvent } from "@/hooks/useSupabaseEvents";
 import { useProject } from "@/contexts/ProjectContext";
@@ -8,10 +8,14 @@ import { ptBR } from "date-fns/locale";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 
-const formatBRL = (value: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-
 const typeConfig: Record<string, { icon: typeof Zap; label: string; color: string }> = {
+  request: { icon: Globe, label: "Requisição", color: "bg-primary/15 text-primary" },
+  exception: { icon: AlertTriangle, label: "Exceção", color: "bg-destructive/15 text-destructive" },
+  job: { icon: Briefcase, label: "Job", color: "bg-blue-500/15 text-blue-400" },
+  email: { icon: Mail, label: "E-mail", color: "bg-green-500/15 text-green-400" },
+  command: { icon: Terminal, label: "Comando", color: "bg-purple-500/15 text-purple-400" },
+  query: { icon: Database, label: "Query", color: "bg-cyan-500/15 text-cyan-400" },
+  security: { icon: Shield, label: "Segurança", color: "bg-warning/15 text-warning" },
   payment: { icon: CreditCard, label: "Pagamento", color: "bg-primary/15 text-primary" },
   withdrawal: { icon: ArrowDownToLine, label: "Saque", color: "bg-warning/15 text-warning" },
   test: { icon: TestTube, label: "Teste", color: "bg-muted text-muted-foreground" },
@@ -35,7 +39,6 @@ function EventRow({ event }: { event: DbEvent }) {
   const config = typeConfig[event.type] ?? { icon: Zap, label: event.type, color: "bg-muted text-muted-foreground" };
   const Icon = config.icon;
   const meta = getMeta(event);
-  const amount = typeof meta.amount === 'number' ? meta.amount : null;
   const isError = event.status === 'error';
 
   return (
@@ -46,27 +49,18 @@ function EventRow({ event }: { event: DbEvent }) {
         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${config.color}`}>{config.label}</Badge>
         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusConfig[event.status] ?? ''}`}>{event.status}</Badge>
         <span className="text-xs text-foreground truncate flex-1">{event.summary ?? '—'}</span>
-        {amount !== null && <span className="text-xs font-mono text-primary shrink-0">{formatBRL(amount)}</span>}
         <span className="text-[10px] text-muted-foreground shrink-0">
           {formatDistanceToNow(new Date(event.created_at), { addSuffix: true, locale: ptBR })}
         </span>
       </button>
       {expanded && (
         <div className="px-12 pb-3 space-y-2 animate-fade-up">
-          {event.type === 'payment' && (
+          {Object.keys(meta).length > 0 ? (
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                <MetaItem label="Transaction ID" value={String(meta.transaction_id ?? '—')} />
-                <MetaItem label="Valor" value={amount !== null ? formatBRL(amount) : '—'} />
-                <MetaItem label="Método" value={String(meta.method ?? '—')} />
-                <MetaItem label="Adquirente" value={String(meta.acquirer ?? '—')} />
-                <MetaItem label="E-mail" value={String(meta.user_email ?? '—')} />
-                {typeof meta.response_time_ms === 'number' && (
-                  <div className="bg-muted/30 rounded px-2.5 py-1.5">
-                    <div className="text-[10px] text-muted-foreground mb-0.5">Latência</div>
-                    <div className={`text-xs font-mono ${latencyColor(meta.response_time_ms)}`}>{formatLatency(meta.response_time_ms)}</div>
-                  </div>
-                )}
+                {Object.entries(meta).map(([key, value]) => (
+                  <MetaItem key={key} label={key} value={String(value ?? '—')} />
+                ))}
               </div>
               {isError && (meta.error_code || meta.error_message) && (
                 <div className="bg-destructive/10 border border-destructive/20 rounded px-3 py-2">
@@ -75,20 +69,8 @@ function EventRow({ event }: { event: DbEvent }) {
                 </div>
               )}
             </>
-          )}
-          {event.type === 'withdrawal' && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-              <MetaItem label="Withdrawal ID" value={String(meta.withdrawal_id ?? '—')} />
-              <MetaItem label="Valor" value={amount !== null ? formatBRL(amount) : '—'} />
-              <MetaItem label="Adquirente" value={String(meta.acquirer ?? '—')} />
-              <MetaItem label="E-mail" value={String(meta.user_email ?? '—')} />
-            </div>
-          )}
-          {event.type === 'test' && (
-            <div className="text-xs text-muted-foreground">Evento de teste — sem dados adicionais</div>
-          )}
-          {!['payment', 'withdrawal', 'test'].includes(event.type) && Object.keys(meta).length > 0 && (
-            <pre className="text-[10px] bg-muted/30 p-2 rounded overflow-auto text-foreground">{JSON.stringify(meta, null, 2)}</pre>
+          ) : (
+            <div className="text-xs text-muted-foreground">Sem dados adicionais</div>
           )}
         </div>
       )}
@@ -123,11 +105,15 @@ const EventsPage = () => {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
         <Tabs value={typeFilter} onValueChange={setTypeFilter}>
-          <TabsList className="h-8">
+          <TabsList className="h-8 flex-wrap">
             <TabsTrigger value="all" className="text-xs px-3 py-1">Todos</TabsTrigger>
+            <TabsTrigger value="request" className="text-xs px-3 py-1">Requisições</TabsTrigger>
+            <TabsTrigger value="exception" className="text-xs px-3 py-1">Exceções</TabsTrigger>
+            <TabsTrigger value="job" className="text-xs px-3 py-1">Jobs</TabsTrigger>
+            <TabsTrigger value="query" className="text-xs px-3 py-1">Queries</TabsTrigger>
+            <TabsTrigger value="security" className="text-xs px-3 py-1">Segurança</TabsTrigger>
             <TabsTrigger value="payment" className="text-xs px-3 py-1">Pagamentos</TabsTrigger>
             <TabsTrigger value="withdrawal" className="text-xs px-3 py-1">Saques</TabsTrigger>
-            <TabsTrigger value="test" className="text-xs px-3 py-1">Testes</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="relative flex-1 max-w-xs">
