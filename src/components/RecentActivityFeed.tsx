@@ -36,6 +36,17 @@ function getEntrySummary(entry: AnyEntry): string {
   }
 }
 
+function getSeverityBorderColor(entry: AnyEntry): string {
+  if (entry.type === "exception") return "border-l-error";
+  if (entry.type === "log" && entry.level === "error") return "border-l-error";
+  if (entry.type === "log" && entry.level === "warning") return "border-l-warning";
+  if (entry.type === "job" && entry.status === "failed") return "border-l-error";
+  if (entry.type === "request" && entry.statusCode >= 500) return "border-l-error";
+  if (entry.type === "request" && entry.statusCode >= 400) return "border-l-warning";
+  if (entry.type === "client_request" && entry.statusCode >= 500) return "border-l-error";
+  return "border-l-transparent";
+}
+
 function getSeverityColor(entry: AnyEntry): string {
   if (entry.type === "exception") return "text-error";
   if (entry.type === "log" && entry.level === "error") return "text-error";
@@ -53,23 +64,31 @@ export function RecentActivityFeed() {
 
   return (
     <div className="border rounded-lg bg-card">
-      <div className="px-4 py-3 border-b">
-        <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
+      <div className="px-4 py-3 border-b flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-widest text-primary font-medium">
           Atividade Recente
         </span>
+        <button
+          onClick={() => navigate("/logs")}
+          className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
+        >
+          Ver todos →
+        </button>
       </div>
-      <div className="divide-y divide-border">
-        {recentEntries.map((entry) => {
+      <div className="divide-y divide-border relative">
+        {recentEntries.map((entry, index) => {
           const config = typeConfig[entry.type];
           if (!config) return null;
           const Icon = config.icon;
           const severityColor = getSeverityColor(entry);
+          const borderColor = getSeverityBorderColor(entry);
 
           return (
             <button
               key={entry.id}
               onClick={() => navigate(config.route)}
-              className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left"
+              className={`w-full flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left border-l-2 ${borderColor}`}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${severityColor}`} />
               <div className="flex-1 min-w-0">
@@ -84,6 +103,8 @@ export function RecentActivityFeed() {
             </button>
           );
         })}
+        {/* Fade-out gradient on last item */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card to-transparent pointer-events-none" />
       </div>
     </div>
   );
