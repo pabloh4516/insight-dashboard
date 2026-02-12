@@ -1,123 +1,66 @@
 
+# Adicionar Paginação às Páginas de Eventos
 
-# Refatorar Dashboard para Monitoramento Tecnico
+## Problema
+- Atualmente, todas as páginas de eventos (Commands, Requests, Exceptions, etc.) carregam até 500 eventos do banco e exibem todos na tela
+- Isso causa renderização pesada e scroll infinito
+- Usuário pode ficar perdido em listas muito grandes
 
-## Objetivo
-Transformar o dashboard de metricas financeiras para foco em saude tecnica do sistema: "O sistema esta saudavel? Tem erros? Tem ataques? As adquirentes estao respondendo?"
+## Solução
+Implementar paginação client-side com 25 itens por página (configurável) em:
+1. **GenericEventPage** - Afeta Commands, Requests, Exceptions, Jobs, Mail, Cache, Queries, Webhooks
+2. **EventsPage** - Página de eventos com filtros
+3. **SecurityPage** - Página de segurança
 
----
+## Mudanças Técnicas
 
-## O que sera REMOVIDO
+### 1. Novo: `src/components/PaginationControls.tsx`
+Componente reutilizável de paginação com:
+- Navegação: Anterior/Próxima
+- Indicador: "Página X de Y"
+- Seletor de itens por página (10, 25, 50, 100)
+- Estado integrado com URL params (opcional)
 
-### DashboardOverview.tsx
-- Cards "Recebido Hoje" (R$) e "Sacado Hoje" (R$) no hero
-- Card "Pagamentos Hoje" com sparkline
-- Card "Saques Hoje" com sparkline  
-- Card "Valor Recebido" com sparkline
-- Grafico "Valor Acumulado (R$)" (cumulative chart)
-- Grafico "Proporcao" (pie chart pagamentos vs saques)
-- Referencia a `formatBRL`, `PieChart`, `Pie`, `Cell`, `DollarSign`, `CreditCard`, `ArrowDownToLine`
-
-### useGatewayStats.ts
-- Campos financeiros: `totalReceivedToday`, `totalWithdrawnToday`, `paymentsToday`, `withdrawalsToday`
-- Dados hourly financeiros: `paymentAmount`, `withdrawalAmount`, `payments`, `withdrawals`
-- `cumulativeData` inteiro
-- Funcao `getAmount`
-
-### EventsPage.tsx
-- Coluna "Valor" (`formatBRL(amount)`) da linha do evento
-- Manter filtros por tipo e detalhes expandidos com todos os campos meta
-
-### RecentActivityFeed.tsx
-- Remover exibicao de `formatBRL(amount)` na linha do evento
-- Manter o feed funcional com todos os tipos de evento
-
----
-
-## O que sera ADICIONADO/MODIFICADO
-
-### useGatewayStats.ts — Novas metricas tecnicas
-- `requestsToday`: count de `type === 'request'`
-- `jobsToday`: count de `type === 'job'`
-- `jobSuccessRate`: porcentagem de jobs com `status === 'success'`
-- `securityAlertsToday`: count de `type === 'security'`
-- Hourly data reformulado: `requests` e `errors` por hora (em vez de payments/withdrawals)
-- Remover `cumulativeData`
-
-### DashboardOverview.tsx — Novo layout
-
-**Hero (manter):**
-- SystemHealthBar (2 colunas) — score baseado em taxa de erro e latencia
-- 2 mini-cards: "Requisicoes Hoje" e "Erros Hoje" (substituem R$ recebido/sacado)
-
-**Cards principais (3 colunas):**
-- Requisicoes Hoje (count requests) com sparkline
-- Erros Hoje (count errors) com sparkline  
-- Jobs Processados (count jobs + taxa de sucesso)
-
-**Cards secundarios (4 colunas):**
-- Total Eventos
-- Alertas de Seguranca (com destaque se > 0)
-- Adquirentes
-- Card de erros expandivel (manter logica atual)
-
-**Grafico principal:**
-- "Volume de Requisicoes por Hora" — area chart com series: requests e errors
-- Manter seletor de periodo e toggle de series
-
-**Grafico secundario (substituir cumulative + pie):**
-- "Erros por Hora" — area chart vermelho mostrando distribuicao de erros ao longo do tempo
-- Remover pie chart completamente
-
-**Rodape (manter):**
-- RecentActivityFeed (ultimos 10 eventos de qualquer tipo)
-- ProviderHealth (adquirentes — metrica tecnica)
-
-### SystemHealthBar.tsx
-- Ajustar calculo do score: baseado em taxa de erro + latencia media dos adquirentes (sem metricas financeiras)
-- Adicionar fator de latencia media ao score
-
-### EventsPage.tsx
-- Expandir filtros de tipo para incluir: request, exception, job, email, command, query, security, payment, withdrawal
-- Remover `formatBRL(amount)` da linha do evento
-- Manter detalhes expandidos com todos os campos meta
-
----
-
-## Detalhes Tecnicos
-
-### Novo HourlyDataPoint
-```text
-interface HourlyDataPoint {
-  hour: string;
-  requests: number;
-  errors: number;
+```typescript
+interface PaginationControlsProps {
+  currentPage: number;
+  totalPages: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+  onItemsPerPageChange: (count: number) => void;
+  totalItems: number;
 }
 ```
 
-### Novas metricas no GatewayStats
-```text
-interface GatewayStats {
-  requestsToday: number;
-  jobsToday: number;
-  jobSuccessRate: number;
-  securityAlertsToday: number;
-  errorsToday: number;
-  totalEvents: number;
-  hourlyData: HourlyDataPoint[];
-  acquirerStats: AcquirerStat[];
-  recentErrors: DbEvent[];
-  recentEvents: DbEvent[];
-  isLoading: boolean;
-  refetch: () => void;
-}
-```
+### 2. Modificar: `src/components/GenericEventPage.tsx`
+- Adicionar estado de paginação com `useState(1)`
+- Fatiar `events` array para mostrar apenas items do range
+- Adicionar `<PaginationControls />` no rodapé
+- Padrão: 25 itens por página
 
-### Arquivos modificados
-1. `src/hooks/useGatewayStats.ts` — refatorar metricas
-2. `src/pages/DashboardOverview.tsx` — novo layout tecnico
-3. `src/components/SystemHealthBar.tsx` — incluir latencia no score
-4. `src/components/RecentActivityFeed.tsx` — remover valor R$
-5. `src/components/ProviderHealth.tsx` — remover `formatBRL`, manter totalAmount como referencia interna
-6. `src/pages/EventsPage.tsx` — expandir filtros, remover coluna valor
+### 3. Modificar: `src/pages/EventsPage.tsx`
+- Adicionar paginação (mesma abordagem)
+- Padrão: 25 itens por página
+
+### 4. Modificar: `src/pages/SecurityPage.tsx`
+- Adicionar paginação na lista de eventos de segurança
+- Manter agrupamento por IP sem paginação (é uma síntese)
+- Padrão: 25 itens por página
+
+## Benefícios
+- ✅ Melhor performance (renderização de 25 itens vs 500)
+- ✅ Interface menos poluída
+- ✅ Scroll mais rápido
+- ✅ Melhor experiência de usuário
+- ✅ Consistente em todas as páginas de eventos
+
+## Limites por Página
+- Padrão: **25 itens** (otimista, bom para scroll)
+- Seletor permite: 10, 25, 50, 100 itens
+
+## Ordem de Implementação
+1. Criar `PaginationControls.tsx`
+2. Refatorar `GenericEventPage.tsx`
+3. Refatorar `EventsPage.tsx`
+4. Refatorar `SecurityPage.tsx`
 
