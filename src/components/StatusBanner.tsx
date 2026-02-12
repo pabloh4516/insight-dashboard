@@ -2,73 +2,92 @@ import { CheckCircle2, AlertTriangle, XCircle, WifiOff } from "lucide-react";
 import { useGatewayStats } from "@/hooks/useGatewayStats";
 import { useHealthCheck } from "@/hooks/useHealthCheck";
 
-function getInactivityPenalty(lastEventAt: string | null): number {
-  if (!lastEventAt) return 100;
-  const minutes = (Date.now() - new Date(lastEventAt).getTime()) / 60000;
-  if (minutes > 1440) return 100;
-  if (minutes > 60) return 70;
-  if (minutes > 30) return 40;
-  if (minutes > 10) return 20;
-  return 0;
-}
-
-function formatMinutes(lastEventAt: string | null): string {
-  if (!lastEventAt) return "mais de 24h";
-  const minutes = Math.round((Date.now() - new Date(lastEventAt).getTime()) / 60000);
-  if (minutes < 60) return `${minutes} minuto${minutes !== 1 ? 's' : ''}`;
+function inactivityLabel(minutes: number): string {
+  if (minutes < 60) return `${Math.round(minutes)} minuto${Math.round(minutes) !== 1 ? 's' : ''}`;
   const hours = Math.round(minutes / 60);
   return `${hours} hora${hours !== 1 ? 's' : ''}`;
 }
 
 export function StatusBanner() {
-  const { errorsToday, totalEvents, acquirerStats, lastEventAt } = useGatewayStats("24h");
-  const healthCheck = useHealthCheck();
+  const { errorsToday, totalEvents, acquirerStats } = useGatewayStats("24h");
+  const hc = useHealthCheck();
 
-  // Health check failed → immediate critical
-  if (healthCheck.isUp === false) {
+  // 1. Fetch failed / timeout / HTTP error
+  if (hc.isUp === false && hc.status === null) {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
         <WifiOff className="h-5 w-5 text-destructive shrink-0" />
         <div>
           <p className="text-sm font-medium text-foreground">
-            Gateway OFFLINE {healthCheck.statusCode ? `(HTTP ${healthCheck.statusCode})` : ''}
+            Gateway OFFLINE {hc.statusCode ? `(HTTP ${hc.statusCode})` : ''}
           </p>
           <p className="text-xs text-muted-foreground">
-            Health check falhou. Seu gateway parece estar fora do ar.
+            Não foi possível conectar ao health check do gateway.
           </p>
         </div>
       </div>
     );
   }
 
-  // Inactivity check
-  const inactivityPenalty = getInactivityPenalty(lastEventAt);
-  if (inactivityPenalty >= 40) {
-    const timeStr = formatMinutes(lastEventAt);
-    const isCritical = inactivityPenalty >= 70;
+  // 2. status === "down"
+  if (hc.status === 'down') {
+    const downComponents: string[] = [];
+    if (hc.checks?.database?.status !== 'ok') downComponents.push('Database');
+    if (hc.checks?.redis?.status !== 'ok') downComponents.push('Redis');
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
+        <XCircle className="h-5 w-5 text-destructive shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-foreground">Gateway DOWN</p>
+          <p className="text-xs text-muted-foreground">
+            {downComponents.length > 0
+              ? `Componentes com falha: ${downComponents.join(', ')}.`
+              : 'O gateway reportou status crítico.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. status === "degraded"
+  if (hc.status === 'degraded') {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-warning/20 bg-warning/5 px-4 py-3">
+        <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-foreground">Gateway degradado</p>
+          <p className="text-xs text-muted-foreground">
+            O gateway está parcialmente funcional. Verifique os detalhes abaixo.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Inactivity via health check last_transaction
+  const minutesAgo = hc.checks?.lastTransaction?.minutes_ago;
+  if (minutesAgo != null && minutesAgo > 30) {
+    const isCritical = minutesAgo > 60;
     return (
       <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${
-        isCritical 
-          ? 'border-destructive/20 bg-destructive/5'
-          : 'border-warning/20 bg-warning/5'
+        isCritical ? 'border-destructive/20 bg-destructive/5' : 'border-warning/20 bg-warning/5'
       }`}>
         {isCritical
           ? <XCircle className="h-5 w-5 text-destructive shrink-0" />
-          : <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
-        }
+          : <AlertTriangle className="h-5 w-5 text-warning shrink-0" />}
         <div>
           <p className="text-sm font-medium text-foreground">
-            {isCritical ? 'Seu gateway parece estar offline.' : 'Atenção: possível inatividade.'}
+            {isCritical ? 'Possível inatividade crítica.' : 'Atenção: possível inatividade.'}
           </p>
           <p className="text-xs text-muted-foreground">
-            Nenhum evento recebido nos últimos {timeStr}.
+            Última transação há {inactivityLabel(minutesAgo)}.
           </p>
         </div>
       </div>
     );
   }
 
-  // Normal score calculation
+  // 5. Normal score-based banner
   const errorRate = totalEvents > 0 ? (errorsToday / totalEvents) * 100 : 0;
   const errorImpact = Math.min(errorRate * 3, 30);
   const lowAcquirers = acquirerStats.filter(a => a.successRate < 90).length;
@@ -80,7 +99,7 @@ export function StatusBanner() {
   const latencyImpact = avgLatency > 3000 ? 20 : avgLatency > 1500 ? 10 : avgLatency > 500 ? 5 : 0;
   const noEventsPenalty = totalEvents === 0 ? 10 : 0;
 
-  const score = Math.round(Math.max(0, Math.min(100, 100 - errorImpact - acqImpact - latencyImpact - noEventsPenalty - inactivityPenalty)));
+  const score = Math.round(Math.max(0, Math.min(100, 100 - errorImpact - acqImpact - latencyImpact - noEventsPenalty)));
 
   if (score >= 80) {
     return (
@@ -101,7 +120,7 @@ export function StatusBanner() {
         <div>
           <p className="text-sm font-medium text-foreground">Alguns problemas detectados.</p>
           <p className="text-xs text-muted-foreground">
-            {errorsToday} erro{errorsToday !== 1 ? 's' : ''} nas últimas 24h. Verifique os detalhes abaixo.
+            {errorsToday} erro{errorsToday !== 1 ? 's' : ''} nas últimas 24h.
           </p>
         </div>
       </div>
@@ -114,7 +133,7 @@ export function StatusBanner() {
       <div>
         <p className="text-sm font-medium text-foreground">Atenção! Problemas críticos detectados.</p>
         <p className="text-xs text-muted-foreground">
-          {errorsToday} erro{errorsToday !== 1 ? 's' : ''} nas últimas 24h. Verifique os erros abaixo.
+          {errorsToday} erro{errorsToday !== 1 ? 's' : ''} nas últimas 24h.
         </p>
       </div>
     </div>
