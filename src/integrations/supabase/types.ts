@@ -44,6 +44,30 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_emails: {
+        Row: {
+          created_at: string
+          email: string
+          enabled: boolean
+          id: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          enabled?: boolean
+          id?: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          enabled?: boolean
+          id?: string
+          project_id?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           api_token: string
