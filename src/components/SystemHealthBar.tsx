@@ -82,6 +82,9 @@ export function SystemHealthBar() {
     : Math.round(Math.max(0, Math.min(100, 100 + factors.reduce((sum, f) => sum + f.impact, 0))));
   const color = getHealthColor(score);
   const label = getHealthLabel(score);
+  const ecgDuration = score >= 80 ? '1.5s' : score >= 50 ? '1s' : '0.6s';
+
+  const ecgPath = "M0,12 L8,12 L10,12 L12,4 L14,20 L16,8 L18,14 L20,12 L28,12 L36,12 L38,12 L40,4 L42,20 L44,8 L46,14 L48,12 L56,12";
 
   return (
     <TooltipProvider>
@@ -91,6 +94,26 @@ export function SystemHealthBar() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-muted-foreground" />
+                <div className="w-16 h-5 overflow-hidden rounded" style={{ opacity: 0.7 }}>
+                  <svg
+                    viewBox="0 0 56 24"
+                    className="h-full"
+                    style={{
+                      width: '200%',
+                      animation: `ecg-sweep ${ecgDuration} linear infinite`,
+                    }}
+                    preserveAspectRatio="none"
+                  >
+                    <path
+                      d={ecgPath}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
                 <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Saúde do Sistema</span>
               </div>
               <div className="flex items-center gap-2">
