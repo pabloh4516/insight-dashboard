@@ -1,51 +1,75 @@
 
 
-# Timeline de Disponibilidade por Hora
+# Gerenciamento de Usuarios e Acesso por Projeto
 
-## Comportamento Desejado
+## Resumo
 
-A timeline de 30 blocos representa a hora atual:
-- No inicio de cada hora (ex: 21:00), todos os blocos ficam vazios/cinza
-- A cada 2 minutos, um novo bloco e preenchido (verde, amarelo ou vermelho)
-- Ao final da hora, os 30 blocos estao preenchidos
-- Quando vira a proxima hora (ex: 22:00), a timeline zera e recomeça
+Voce podera criar usuarios diretamente pelo painel, informando e-mail e senha. Cada usuario criado so tera acesso aos projetos que voce atribuir a ele.
 
-## Problema Atual
+## Como vai funcionar
 
-1. O hook carrega os ultimos 30 registros do banco **sem filtrar por hora** -- entao mistura checks de horas diferentes
-2. Ha registros duplicados (varios checks no mesmo segundo) que "consomem" os 30 slots
+1. Na pagina de **Projetos**, ao abrir um projeto, voce vera uma secao "Membros" onde pode adicionar/remover usuarios
+2. Uma nova pagina **Usuarios** no menu lateral mostra todos os usuarios que voce criou
+3. O usuario convidado faz login com o e-mail e senha que voce definiu
+4. Ele so ve os projetos aos quais foi atribuido
 
-## Correcoes
+## Etapas Tecnicas
 
-### 1. Filtrar checks pela hora atual (useHealthCheck.ts)
+### 1. Banco de Dados
 
-Ao carregar o historico do banco, filtrar apenas registros onde `checked_at` esta dentro da hora atual:
-- Calcular o inicio da hora atual (ex: se sao 21:35, filtrar `checked_at >= 21:00:00`)
-- Isso garante que ao virar a hora, a query retorna 0 registros e a timeline começa vazia
+Criar tabela `project_members` para vincular usuarios a projetos:
 
-### 2. Deduplica no frontend (useHealthCheck.ts)
+```text
+project_members
+- id (uuid, PK)
+- project_id (uuid, FK -> projects.id)
+- user_id (uuid, FK -> auth.users.id)
+- created_at (timestamptz)
+- unique(project_id, user_id)
+```
 
-Antes de popular o `history`, agrupar registros que estao dentro do mesmo intervalo de 2 minutos, mantendo apenas 1 por slot. Isso evita que duplicatas consumam os 30 blocos.
+Politicas RLS:
+- SELECT/INSERT/DELETE: apenas o dono do projeto (via projects.user_id = auth.uid())
 
-### 3. Atualizar label do componente (UptimeTimeline.tsx)
+Atualizar RLS de `projects` e `events`:
+- Permitir SELECT tambem para membros (usuario que aparece em project_members)
+- Usar funcao `security definer` para evitar recursao
 
-Trocar "Disponibilidade (ultima hora)" para mostrar a hora atual, ex: "Disponibilidade (21:00 - 22:00)".
+### 2. Edge Function `invite-user`
 
-## Detalhes Tecnicos
+Criar uma edge function que:
+- Recebe `email`, `password` e `project_id`
+- Valida que o usuario autenticado e dono do projeto
+- Usa `supabase.auth.admin.createUser()` para criar o usuario com e-mail confirmado
+- Insere o registro em `project_members`
+- Retorna o usuario criado
 
-### useHealthCheck.ts - Filtro por hora atual
+### 3. Pagina de Usuarios (`/users`)
 
-Na query de carregamento inicial, adicionar `.gte('checked_at', startOfCurrentHour)` para trazer apenas os checks da hora vigente. Quando novos checks sao adicionados ao estado, verificar se ainda estamos na mesma hora; se a hora mudou, limpar o historico local.
+Nova pagina com:
+- Formulario para criar usuario (e-mail + senha)
+- Lista de usuarios criados (buscados de project_members)
+- Botao para remover acesso de um usuario a um projeto
 
-### useHealthCheck.ts - Deduplicacao
+### 4. Secao de Membros na pagina de Projetos
 
-Ao receber os dados do banco, calcular o "slot" de cada check (minuto 0-1 = slot 0, minuto 2-3 = slot 1, ..., minuto 58-59 = slot 29) e manter apenas o registro mais recente de cada slot.
+Ao lado de cada projeto, mostrar os membros e permitir adicionar/remover.
 
-### UptimeTimeline.tsx - Label dinamico
+### 5. Atualizar Sidebar
 
-Usar a hora atual para exibir o intervalo, ex: "21:00 - 22:00". Cada bloco representara um intervalo de 2 minutos dentro da hora.
+Adicionar link "Usuarios" no menu lateral, na secao fixa (junto com Projetos e Notificacoes).
 
-### Arquivos modificados
+### 6. Atualizar ProjectContext
 
-- `src/hooks/useHealthCheck.ts` -- filtro por hora + deduplicacao
-- `src/components/UptimeTimeline.tsx` -- label dinamico com horario
+O `useProjects` precisa retornar tambem projetos onde o usuario e membro (nao apenas dono), para que usuarios convidados vejam os projetos atribuidos.
+
+### Arquivos modificados/criados
+
+- **Migracoes SQL**: criar `project_members`, funcao `is_project_member`, atualizar RLS de `projects`, `events`, `health_check_log`, `notification_emails`
+- `supabase/functions/invite-user/index.ts` -- nova edge function
+- `src/pages/UsersPage.tsx` -- nova pagina
+- `src/hooks/useProjectMembers.ts` -- novo hook
+- `src/hooks/useProjects.ts` -- atualizar query para incluir projetos como membro
+- `src/components/TelescopeSidebar.tsx` -- adicionar link Usuarios
+- `src/App.tsx` -- adicionar rota /users
+
