@@ -111,7 +111,7 @@ export function SystemHealthBar() {
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-xs">
+        <TooltipContent side="bottom" className="max-w-xs z-50">
           <div className="space-y-1">
             <p className="text-xs font-medium mb-2">Fatores:</p>
             {factors.map((f, i) => (
