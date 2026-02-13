@@ -121,7 +121,7 @@ const DashboardOverview = () => {
       </div>
 
       {/* Secondary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         <div className="animate-fade-up" style={{ animationDelay: '400ms' }}>
           <SparklineCard title="Total Eventos" value={stats.totalEvents} icon={Zap} trend={0} sparkData={[0, 0]} color={COLORS.request} compact />
         </div>

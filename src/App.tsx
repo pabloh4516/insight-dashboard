@@ -25,6 +25,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import AuthPage from "./pages/AuthPage";
 import UsersPage from "./pages/UsersPage";
 import NotFound from "./pages/NotFound";
+import InstallPage from "./pages/InstallPage";
 import SettingsPage from "./pages/SettingsPage";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
@@ -44,6 +45,7 @@ const AppRoutes = () => {
     return (
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/install" element={<InstallPage />} />
         <Route path="*" element={<Navigate to="/auth" replace />} />
       </Routes>
     );
