@@ -1,7 +1,7 @@
 import {
   Zap, FileText, LayoutDashboard, LogOut, FolderOpen, ChevronDown, ChevronRight,
   Globe, AlertTriangle, Database, Cog, Mail, HardDrive, Terminal, Shield,
-  ArrowDownLeft, ArrowUpRight, LogIn, Settings, RefreshCw, Bell
+  ArrowDownLeft, ArrowUpRight, LogIn, Settings, RefreshCw, Bell, Users
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -225,6 +225,14 @@ export function TelescopeSidebar() {
           >
             <Bell className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
             <span className="flex-1 truncate">Notificações</span>
+          </NavLink>
+          <NavLink
+            to="/users"
+            className="flex items-center gap-3 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
+            activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
+          >
+            <Users className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
+            <span className="flex-1 truncate">Usuários</span>
           </NavLink>
         </div>
       </nav>

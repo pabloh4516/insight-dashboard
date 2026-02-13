@@ -17,12 +17,35 @@ export const useProjects = () => {
   const query = useQuery({
     queryKey: ['projects', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch owned projects
+      const { data: owned, error: ownedError } = await supabase
         .from('projects')
         .select('*')
+        .eq('user_id', user!.id)
         .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Project[];
+      if (ownedError) throw ownedError;
+
+      // Fetch projects where user is a member
+      const { data: memberships, error: memberError } = await supabase
+        .from('project_members')
+        .select('project_id')
+        .eq('user_id', user!.id);
+
+      let memberProjects: Project[] = [];
+      if (!memberError && memberships && memberships.length > 0) {
+        const memberIds = memberships.map(m => m.project_id);
+        const { data: mp } = await supabase
+          .from('projects')
+          .select('*')
+          .in('id', memberIds)
+          .order('created_at', { ascending: false });
+        memberProjects = (mp ?? []) as Project[];
+      }
+
+      // Merge, avoiding duplicates
+      const ownedIds = new Set((owned ?? []).map(p => p.id));
+      const merged = [...(owned ?? []), ...memberProjects.filter(p => !ownedIds.has(p.id))];
+      return merged as Project[];
     },
     enabled: !!user,
   });
