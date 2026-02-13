@@ -17,23 +17,24 @@ function getHealthLabel(score: number): string {
   return "Crítico";
 }
 
-function HealthCheckTimer({ lastCheckedAt }: { lastCheckedAt: string | null }) {
-  const [nextIn, setNextIn] = useState(120);
-  const POLL_INTERVAL = 120; // 2 minutes in seconds
+function HealthCheckTimer({ lastCheckedAt, pollIntervalSeconds }: { lastCheckedAt: string | null; pollIntervalSeconds: number }) {
+  const [nextIn, setNextIn] = useState(pollIntervalSeconds);
 
   useEffect(() => {
     if (!lastCheckedAt) return;
 
-    const interval = setInterval(() => {
+    const tick = () => {
       const now = new Date();
       const lastCheck = new Date(lastCheckedAt);
       const secondsElapsed = Math.floor((now.getTime() - lastCheck.getTime()) / 1000);
-      const remaining = Math.max(0, POLL_INTERVAL - secondsElapsed);
+      const remaining = Math.max(0, pollIntervalSeconds - secondsElapsed);
       setNextIn(remaining);
-    }, 1000);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
 
     return () => clearInterval(interval);
-  }, [lastCheckedAt]);
+  }, [lastCheckedAt, pollIntervalSeconds]);
 
   if (!lastCheckedAt) return null;
 
@@ -172,7 +173,7 @@ export function SystemHealthBar() {
             <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-all duration-700" style={{ width: `${score}%`, backgroundColor: color }} />
             </div>
-            <HealthCheckTimer lastCheckedAt={hc.lastCheckedAt} />
+            <HealthCheckTimer lastCheckedAt={hc.lastCheckedAt} pollIntervalSeconds={Math.round(hc.pollIntervalMs / 1000)} />
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-xs z-50">

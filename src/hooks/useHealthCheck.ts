@@ -29,7 +29,7 @@ export interface HealthCheckState {
   history: HealthCheckEntry[];
 }
 
-const POLL_INTERVAL_MS = 2 * 60 * 1000;
+const DEFAULT_POLL_INTERVAL_MS = 2 * 60 * 1000;
 const MAX_HISTORY = 30;
 
 function getHourBounds() {
@@ -128,6 +128,8 @@ export function useHealthCheck() {
   const { selectedProject } = useProject();
   const projectId = selectedProject?.id ?? null;
 
+  const pollIntervalMs = (selectedProject?.polling_interval_seconds ?? 120) * 1000;
+
   const [state, setState] = useState<HealthCheckState>({
     isUp: null, status: null, statusCode: null, lastCheckedAt: null, error: null, checks: null, history: [],
   });
@@ -220,11 +222,11 @@ export function useHealthCheck() {
 
   useEffect(() => {
     check();
-    const interval = setInterval(check, POLL_INTERVAL_MS);
+    const interval = setInterval(check, pollIntervalMs);
     const onVisibility = () => { if (document.visibilityState === 'visible') check(); };
     document.addEventListener('visibilitychange', onVisibility);
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisibility); };
-  }, [check]);
+  }, [check, pollIntervalMs]);
 
-  return { ...state, recheckNow: check };
+  return { ...state, recheckNow: check, pollIntervalMs };
 }

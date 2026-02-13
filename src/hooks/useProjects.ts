@@ -8,6 +8,7 @@ export interface Project {
   api_token: string;
   user_id: string;
   created_at: string;
+  polling_interval_seconds: number;
 }
 
 export const useProjects = () => {
