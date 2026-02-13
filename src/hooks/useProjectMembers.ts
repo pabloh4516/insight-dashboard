@@ -15,11 +15,11 @@ export const useProjectMembers = (projectId: string | null) => {
   const query = useQuery({
     queryKey: ['project-members', projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('project_members')
+      const { data, error } = await (supabase
+        .from('project_members' as any)
         .select('*')
         .eq('project_id', projectId!)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as any);
       if (error) throw error;
       return data as ProjectMember[];
     },
@@ -51,10 +51,10 @@ export const useProjectMembers = (projectId: string | null) => {
 
   const removeMember = useMutation({
     mutationFn: async (memberId: string) => {
-      const { error } = await supabase
-        .from('project_members')
+      const { error } = await (supabase
+        .from('project_members' as any)
         .delete()
-        .eq('id', memberId);
+        .eq('id', memberId) as any);
       if (error) throw error;
     },
     onSuccess: () => {
