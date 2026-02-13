@@ -24,7 +24,11 @@ interface SidebarGroup {
   items: NavItem[];
 }
 
-export function TelescopeSidebar() {
+interface TelescopeSidebarProps {
+  onClose?: () => void;
+}
+
+export function TelescopeSidebar({ onClose }: TelescopeSidebarProps) {
   const { signOut, user } = useAuth();
   const { projects, selectedProject, setSelectedProjectId } = useProject();
   const { markVisited, getLastVisited } = useLastVisited();
@@ -120,6 +124,10 @@ export function TelescopeSidebar() {
     });
   };
 
+  const handleNavClick = () => {
+    onClose?.();
+  };
+
   return (
     <aside className="w-64 min-h-screen bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))] flex flex-col shrink-0">
       <div className="p-5 border-b border-[hsl(var(--sidebar-border))]">
@@ -192,6 +200,7 @@ export function TelescopeSidebar() {
                       end={item.url === "/"}
                       className="flex items-center gap-3 px-5 pl-9 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
                       activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
+                      onClick={handleNavClick}
                     >
                       <item.icon className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
                       <span className="flex-1 truncate">{item.title}</span>
@@ -214,6 +223,7 @@ export function TelescopeSidebar() {
             to="/projects"
             className="flex items-center gap-3 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
             activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
+            onClick={handleNavClick}
           >
             <FolderOpen className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
             <span className="flex-1 truncate">Projetos</span>
@@ -222,6 +232,7 @@ export function TelescopeSidebar() {
             to="/notifications"
             className="flex items-center gap-3 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
             activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
+            onClick={handleNavClick}
           >
             <Bell className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
             <span className="flex-1 truncate">Notificações</span>
@@ -230,6 +241,7 @@ export function TelescopeSidebar() {
             to="/users"
             className="flex items-center gap-3 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
             activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
+            onClick={handleNavClick}
           >
             <Users className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
             <span className="flex-1 truncate">Usuários</span>
@@ -238,6 +250,7 @@ export function TelescopeSidebar() {
             to="/settings"
             className="flex items-center gap-3 px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--sidebar-accent))] transition-all duration-200 group border-l-2 border-transparent"
             activeClassName="text-primary bg-primary/10 border-l-2 !border-primary"
+            onClick={handleNavClick}
           >
             <Settings className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
             <span className="flex-1 truncate">Configurações</span>
