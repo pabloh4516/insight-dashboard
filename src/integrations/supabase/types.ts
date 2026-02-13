@@ -82,6 +82,35 @@ export type Database = {
           },
         ]
       }
+      health_status_tracker: {
+        Row: {
+          last_notified_at: string | null
+          last_status: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          last_notified_at?: string | null
+          last_status?: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          last_notified_at?: string | null
+          last_status?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_status_tracker_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_emails: {
         Row: {
           created_at: string

@@ -213,9 +213,7 @@ export function useHealthCheck() {
       const msg = isDown ? 'Gateway está OFFLINE!' : 'Gateway está degradado.';
       sendBrowserNotification('⚠️ Alerta do Gateway', msg);
       playAlertSound();
-      supabase.functions.invoke('notify-status-change', {
-        body: { status: isDown ? 'DOWN' : 'DEGRADED', statusCode: null, checkedAt: new Date().toISOString() },
-      }).catch(() => {});
+      // Email notifications are now handled by the backend cron job
     }
     prevStatus.current = newStatus;
   }
