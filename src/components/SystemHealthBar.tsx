@@ -1,6 +1,9 @@
-import { Activity, RefreshCw } from "lucide-react";
+import { Activity, RefreshCw, Clock } from "lucide-react";
 import { useHealthCheck } from "@/hooks/useHealthCheck";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useState, useEffect } from "react";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 function getHealthColor(score: number): string {
   if (score >= 80) return "hsl(var(--color-success))";
@@ -12,6 +15,43 @@ function getHealthLabel(score: number): string {
   if (score >= 80) return "Saudável";
   if (score >= 50) return "Atenção";
   return "Crítico";
+}
+
+function HealthCheckTimer({ lastCheckedAt }: { lastCheckedAt: string | null }) {
+  const [nextIn, setNextIn] = useState(120);
+  const POLL_INTERVAL = 120; // 2 minutes in seconds
+
+  useEffect(() => {
+    if (!lastCheckedAt) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const lastCheck = new Date(lastCheckedAt);
+      const secondsElapsed = Math.floor((now.getTime() - lastCheck.getTime()) / 1000);
+      const remaining = Math.max(0, POLL_INTERVAL - secondsElapsed);
+      setNextIn(remaining);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lastCheckedAt]);
+
+  if (!lastCheckedAt) return null;
+
+  const lastCheckedRelative = formatDistanceToNow(new Date(lastCheckedAt), { addSuffix: true, locale: ptBR });
+  const minutes = Math.floor(nextIn / 60);
+  const seconds = nextIn % 60;
+
+  return (
+    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-1">
+        <Clock className="h-3 w-3" />
+        <span>Última verificação: {lastCheckedRelative}</span>
+      </div>
+      <div className="px-1.5 py-0.5 rounded bg-secondary">
+        Próxima em: {minutes}:{seconds.toString().padStart(2, '0')}
+      </div>
+    </div>
+  );
 }
 
 export function SystemHealthBar() {
@@ -132,6 +172,7 @@ export function SystemHealthBar() {
             <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-all duration-700" style={{ width: `${score}%`, backgroundColor: color }} />
             </div>
+            <HealthCheckTimer lastCheckedAt={hc.lastCheckedAt} />
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-xs z-50">
