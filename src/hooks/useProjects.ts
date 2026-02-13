@@ -26,10 +26,10 @@ export const useProjects = () => {
       if (ownedError) throw ownedError;
 
       // Fetch projects where user is a member
-      const { data: memberships, error: memberError } = await supabase
-        .from('project_members')
+      const { data: memberships, error: memberError } = await (supabase
+        .from('project_members' as any)
         .select('project_id')
-        .eq('user_id', user!.id);
+        .eq('user_id', user!.id) as any);
 
       let memberProjects: Project[] = [];
       if (!memberError && memberships && memberships.length > 0) {
