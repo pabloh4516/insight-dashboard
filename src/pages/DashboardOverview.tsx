@@ -61,12 +61,7 @@ const DashboardOverview = () => {
       {/* Hero */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
         <div className="lg:col-span-2 animate-fade-up">
-          <ShadTooltip>
-            <TooltipTrigger asChild>
-              <div><SystemHealthBar /></div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p className="text-xs">Nota geral baseada em erros e velocidade de resposta</p></TooltipContent>
-          </ShadTooltip>
+          <SystemHealthBar />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <ShadTooltip>
