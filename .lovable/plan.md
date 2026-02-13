@@ -1,75 +1,61 @@
 
 
-# Gerenciamento de Usuarios e Acesso por Projeto
+# Monitoramento Automatico com Cron Job
 
 ## Resumo
 
-Voce podera criar usuarios diretamente pelo painel, informando e-mail e senha. Cada usuario criado so tera acesso aos projetos que voce atribuir a ele.
+Criar um cron job no banco de dados que executa o health check automaticamente a cada 2 minutos, independente de alguem estar com o painel aberto. Quando detectar mudanca de status (ex: gateway caiu), o email e enviado imediatamente. Alem disso, adicionar um **resumo periodico por email** a cada 1 hora quando o gateway estiver com problemas.
 
 ## Como vai funcionar
 
-1. Na pagina de **Projetos**, ao abrir um projeto, voce vera uma secao "Membros" onde pode adicionar/remover usuarios
-2. Uma nova pagina **Usuarios** no menu lateral mostra todos os usuarios que voce criou
-3. O usuario convidado faz login com o e-mail e senha que voce definiu
-4. Ele so ve os projetos aos quais foi atribuido
+1. **Deteccao imediata**: A cada 2 minutos, o backend verifica o gateway automaticamente. Se detectar que caiu ou degradou, envia email **na hora**.
+2. **Resumo periodico**: Enquanto o gateway estiver fora do ar, um lembrete e enviado a cada 1 hora para que voce nao esqueca.
+3. **Sem duplicatas**: O sistema guarda o ultimo status conhecido no banco. So envia email quando ha mudanca real de status, ou quando o lembrete de 1h dispara.
 
 ## Etapas Tecnicas
 
-### 1. Banco de Dados
+### 1. Criar tabela `health_status_tracker`
 
-Criar tabela `project_members` para vincular usuarios a projetos:
+Uma tabela simples para guardar o ultimo status conhecido de cada projeto:
 
 ```text
-project_members
-- id (uuid, PK)
-- project_id (uuid, FK -> projects.id)
-- user_id (uuid, FK -> auth.users.id)
-- created_at (timestamptz)
-- unique(project_id, user_id)
+health_status_tracker
+- project_id (uuid, PK, FK -> projects.id)
+- last_status (text) -- 'operational', 'degraded', 'down'
+- last_notified_at (timestamptz) -- quando o ultimo email foi enviado
+- updated_at (timestamptz)
 ```
 
-Politicas RLS:
-- SELECT/INSERT/DELETE: apenas o dono do projeto (via projects.user_id = auth.uid())
+### 2. Criar Edge Function `cron-health-check`
 
-Atualizar RLS de `projects` e `events`:
-- Permitir SELECT tambem para membros (usuario que aparece em project_members)
-- Usar funcao `security definer` para evitar recursao
+Nova edge function que:
+- Busca todos os projetos ativos
+- Para cada projeto, chama a API de health
+- Compara o status atual com o `last_status` na tabela `health_status_tracker`
+- Se houve mudanca de status: envia email imediatamente via `notify-status-change`
+- Se o status continua "down" ou "degraded" e ja passou 1 hora desde `last_notified_at`: envia lembrete
+- Atualiza a tabela `health_status_tracker`
 
-### 2. Edge Function `invite-user`
+### 3. Habilitar extensoes `pg_cron` e `pg_net`
 
-Criar uma edge function que:
-- Recebe `email`, `password` e `project_id`
-- Valida que o usuario autenticado e dono do projeto
-- Usa `supabase.auth.admin.createUser()` para criar o usuario com e-mail confirmado
-- Insere o registro em `project_members`
-- Retorna o usuario criado
+Necessarias para agendar tarefas no banco.
 
-### 3. Pagina de Usuarios (`/users`)
+### 4. Criar o cron job
 
-Nova pagina com:
-- Formulario para criar usuario (e-mail + senha)
-- Lista de usuarios criados (buscados de project_members)
-- Botao para remover acesso de um usuario a um projeto
+Agendar a execucao da edge function `cron-health-check` a cada 2 minutos:
 
-### 4. Secao de Membros na pagina de Projetos
+```text
+Intervalo: */2 * * * * (a cada 2 minutos)
+Acao: chama a edge function via HTTP POST
+```
 
-Ao lado de cada projeto, mostrar os membros e permitir adicionar/remover.
+### 5. Remover envio de email do frontend
 
-### 5. Atualizar Sidebar
-
-Adicionar link "Usuarios" no menu lateral, na secao fixa (junto com Projetos e Notificacoes).
-
-### 6. Atualizar ProjectContext
-
-O `useProjects` precisa retornar tambem projetos onde o usuario e membro (nao apenas dono), para que usuarios convidados vejam os projetos atribuidos.
+O hook `useHealthCheck` no frontend continuara fazendo as notificacoes do navegador (som + popup), mas **nao enviara mais emails** -- isso fica 100% no backend.
 
 ### Arquivos modificados/criados
 
-- **Migracoes SQL**: criar `project_members`, funcao `is_project_member`, atualizar RLS de `projects`, `events`, `health_check_log`, `notification_emails`
-- `supabase/functions/invite-user/index.ts` -- nova edge function
-- `src/pages/UsersPage.tsx` -- nova pagina
-- `src/hooks/useProjectMembers.ts` -- novo hook
-- `src/hooks/useProjects.ts` -- atualizar query para incluir projetos como membro
-- `src/components/TelescopeSidebar.tsx` -- adicionar link Usuarios
-- `src/App.tsx` -- adicionar rota /users
+- **Migracao SQL**: criar tabela `health_status_tracker`, habilitar extensoes, criar cron job
+- `supabase/functions/cron-health-check/index.ts` -- nova edge function
+- `src/hooks/useHealthCheck.ts` -- remover chamada a `notify-status-change`
 
